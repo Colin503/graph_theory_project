@@ -50,7 +50,7 @@ class Forme:
 class Rect(Forme):
     """Redéfinition d'une Forme pour un rectangle."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs): # *args et **kwargs quand on cherche a récupérer des arguments non spécifiés
         super().__init__(*args, **kwargs)
 
     def get(self, x: float, y: float, h: int) -> plt.Rectangle:
@@ -131,14 +131,17 @@ class HexGridViewer:
         return self.__alpha[(x, y)]
 
     def get_neighbours(self, x: int, y: int) -> List[Coords]:
+
         """
         Retourne la liste des coordonnées des hexagones voisins de l'hexagone en coordonnées (x,y).
         """
+
         if y % 2 == 0:
             res = [(x + dx, y + dy) for dx, dy in ((1, 0), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1))]
         else:
             res = [(x + dx, y + dy) for dx, dy in ((1, 0), (1, 1), (0, 1), (-1, 0), (0, -1), (1, -1))]
         return [(dx, dy) for dx, dy in res if 0 <= dx < self.__width and 0 <= dy < self.__height]
+
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
@@ -218,7 +221,7 @@ def main():
     Fonction exemple pour présenter le programme ci-dessus.
     """
     # CREATION D'UNE GRILLE 15x15
-    hex_grid = HexGridViewer(15, 15)
+    hex_grid = HexGridViewer(10, 10)
 
     # MODIFICATION DE LA COULEUR D'UNE CASE
     # hex_grid.add_color(X, Y, color) où :
@@ -263,13 +266,16 @@ if __name__ == "__main__":
 
 # # Quel algorithme utiliser pour générer une zone régulière qui s'étend sur la carte (i.e. toutes les cases à
 # distance $i$ d'une case)?
+#l'algorithme diamond square
 
 # # Quel algorithme permettrait de tracer des rivières à partir d'un point donné sur la carte, en ajoutant une
 # contrainte d'altitude descendante en prenannt le chemin le plus long possible ?
 
 # # Quel algorithme utiliser pour aller d'un point A à un point B ?
+# BFS
 
 # # Quel algorithme utiliser pour créer un réseau de routes le moins couteux possible entre x villes, pour qu'elles
 # sont toutes interconnectées ?
+#Kruskal
 
 ##
