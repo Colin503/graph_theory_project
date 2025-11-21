@@ -85,9 +85,17 @@ class HexGridViewer:
         # modifié par défaut par matplolib, la modification ne sert à rien
         # mais est nécessaire pour calculer les points
         self.__hexsize = 10
+        
+        #Dictionnaire des éléments du terrain
+        self.terrain: Dict[str, str] = {"grass": "green", "water": "blue", "mountain": "grey", "sand": "yellow", "forest": "darkgreen"}
 
         # couleur des hexagones : par défaut, blanc
+        #self.__colors: Dict[Coords, str] = defaultdict(lambda: self.terrain["forest"])
         self.__colors: Dict[Coords, str] = defaultdict(lambda: "white")
+
+        #Altitude des éléments du terrain : par défaut, 0.0 niveau de la mer
+        #Altitude Max : 500(montagne)
+        self.altitude: Dict[Coords, int]= defaultdict(lambda: 0)
 
         # transparence des hexagones : par défaut, 1
         self.__alpha: Dict[Coords, float] = defaultdict(lambda: 1)
@@ -126,6 +134,35 @@ class HexGridViewer:
 
     def get_alpha(self, x: int, y: int) -> float:
         return self.__alpha[(x, y)]
+    
+    
+    """Définie les altitudes en fonction des éléments du terrain
+        --> mer : 0
+        --> sable : 20
+        --> herbe : 50
+        --> fôret : 100
+        --> montagne/coline : 300
+    """
+    def update_color_from_altitude(self, x:int, y:int, alt:int) -> None:
+        if alt <= 10:
+            terrain_type = "water" 
+        elif alt <= 20:
+            terrain_type = "sand"
+        elif alt <= 50:
+            terrain_type = "grass"
+        elif alt <= 100:
+            terrain_type = "forest"
+        else: 
+            terrain_type = "mountain"
+
+        if terrain_type in self.terrain:
+            color = self.terrain[terrain_type]
+            self.__colors[(x, y)] = color
+
+    def add_altitude(self, x:int, y:int, alt:int) -> None:
+        alt = max(0,min(alt,500))
+        self.altitude[(x,y)] = alt
+        self.update_color_from_altitude(x,y,alt)
 
     def get_neighbours(self, x: int, y: int) -> List[Coords]:
 
@@ -259,6 +296,7 @@ def main():
     # - X et Y sont les coordonnées de l'hexagone et color la couleur associée à cet hexagone.
     hex_grid.add_color(5, 5, "purple")
     hex_grid.add_color(1, 0, "red")
+    hex_grid.add_altitude(9,9, 500)
 
     # MODIFICATION DE LA TRANSPARENCE D'UNE CASE
     # hex_grid.add_alpha(X, Y, alpha) où :
@@ -289,7 +327,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"blue": "water", "white": "void", "grey": "rock"}, debug_coords=True)
+    hex_grid.show(alias={"blue": "water", "white": "void", "grey": "rock", "darkgreen": "forest", "sand":"yellow"}, debug_coords=True)
 
 
 if __name__ == "__main__":
