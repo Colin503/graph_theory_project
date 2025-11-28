@@ -87,7 +87,15 @@ class HexGridViewer:
         self.__hexsize = 10
         
         #Dictionnaire des éléments du terrain
-        self.terrain: Dict[str, str] = {"grass": "green", "water": "blue", "mountain": "grey", "sand": "yellow", "forest": "darkgreen"}
+        self.terrain: Dict[str, str] = {
+            "ocean": "darkblue", 
+            "water": "blue", 
+            "sand": "yellow", 
+            "grass": "yellowgreen", 
+            "forest": "darkgreen", 
+            "mountain_low": "brown",
+            "mountain": "gray"
+        }
 
         # couleur des hexagones : par défaut, blanc
         #self.__colors: Dict[Coords, str] = defaultdict(lambda: self.terrain["forest"])
@@ -136,23 +144,32 @@ class HexGridViewer:
         return self.__alpha[(x, y)]
     
     
-    """Définie les altitudes en fonction des éléments du terrain
-        --> mer : 0
-        --> sable : 20
-        --> herbe : 50
-        --> fôret : 100
-        --> montagne/coline : 300
-    """
-    def update_color_from_altitude(self, x:int, y:int, alt:int) -> None:
+    def update_color_from_altitude(self, x: int, y: int, alt: int) -> None:
+        """
+        Définit la couleur en fonction de l'altitude.
+        
+        Palier d'altitudes :
+        --> 0-10    : ocean (darkblue)
+        --> 10-20   : water (blue)
+        --> 20-40   : sand (yellow)
+        --> 40-150  : grass (yellowgreen)
+        --> 150-350 : forest (darkgreen)
+        --> 350-450 : mountain_low (brown)
+        --> 450-500 : mountain (gray)
+        """
         if alt <= 10:
-            terrain_type = "water" 
+            terrain_type = "ocean"
         elif alt <= 20:
+            terrain_type = "water"
+        elif alt <= 40:
             terrain_type = "sand"
-        elif alt <= 50:
+        elif alt <= 150:
             terrain_type = "grass"
-        elif alt <= 100:
+        elif alt <= 350:
             terrain_type = "forest"
-        else: 
+        elif alt <= 450:
+            terrain_type = "mountain_low"
+        else:
             terrain_type = "mountain"
 
         if terrain_type in self.terrain:
@@ -160,7 +177,7 @@ class HexGridViewer:
             self.__colors[(x, y)] = color
 
     def add_altitude(self, x:int, y:int, alt:int) -> None:
-        alt = max(0,min(alt,500))
+        alt = max(0,min(alt,500)) #Eviter les cas extrême
         self.altitude[(x,y)] = alt
         self.update_color_from_altitude(x,y,alt)
 
@@ -201,7 +218,7 @@ class HexGridViewer:
                 y = row * np.sqrt(3) * h
                 if col % 2 == 1:
                     y += np.sqrt(3) * h / 2
-                coords[(row, col)] = (x, y)
+                # coords[(row, col)] = (x, y)
 
                 center = (x, y)
                 hexagon = RegularPolygon(center, numVertices=6, radius=h, orientation=np.pi / 6,
@@ -210,9 +227,9 @@ class HexGridViewer:
                 hexagon.set_alpha(self.__alpha[(row, col)])
 
                 # Ajoute du texte à l'hexagone
-                if debug_coords:
-                    text = f"({row}, {col})"  # Le texte que vous voulez afficher
-                    ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
+                # if debug_coords:
+                #     text = f"({row}, {col})"  # Le texte que vous voulez afficher
+                #     ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
 
                 # ajoute l'hexagone
                 ax.add_patch(hexagon)
@@ -245,7 +262,7 @@ class HexGridViewer:
             LinearSegmentedColormap.from_list('custom_cmap', ['white', vs[i]]) for i in range(len(vs))]
         # Créez une liste de patch à partir des polygones
         legend_patches = [
-            Patch(label=ks[i], edgecolor="black", linewidth=1, facecolor=gradient_cmaps[i](0.5), )
+            Patch(label=ks[i], edgecolor="black", linewidth=1, facecolor=gradient_cmaps[i](0.9), )
             for i in range(len(ks))]
         # Ajoutez la légende à la figure
         ax.legend(handles=legend_patches, loc='center left', bbox_to_anchor=(1, 0.5))
@@ -282,52 +299,77 @@ class Graph:
         for node, succs in self.suc_list.items():
          print(f"{node} : {' -> '.join(map(str, succs))}")
 
+"""===========================================Algorithme de génération de terrain================================================"""
+
+def diamond_square(size, max_altitude=500, smoothing = 0.5):
+    """
+    Algorithme Diamond-Square pour générer un terrain réaliste avec altitudes progressives.
+    
+    :param width: largeur de la grille
+    :param height: hauteur de la grille
+    :param max_altitude: altitude maximale (0-500)
+    :return: matrice 2D des altitudes
+    """
+    #Initialiser la grille avec des dimensions qui sont des puissances de 2**n+1
+    pass
+
 """=====================================Main=========================================================================="""
 
 def main():
     """
     Fonction exemple pour présenter le programme ci-dessus.
     """
-    # CREATION D'UNE GRILLE 15x15
-    hex_grid = HexGridViewer(10, 10)
+    # CREATION D'UNE GRILLE 17x17
+    hex_grid = HexGridViewer(17, 17)
 
     # MODIFICATION DE LA COULEUR D'UNE CASE
     # hex_grid.add_color(X, Y, color) où :
     # - X et Y sont les coordonnées de l'hexagone et color la couleur associée à cet hexagone.
-    hex_grid.add_color(5, 5, "purple")
-    hex_grid.add_color(1, 0, "red")
-    hex_grid.add_altitude(9,9, 500)
+    """hex_grid.add_color(5, 5, "purple")
+    hex_grid.add_color(1, 0, "red")"""
+    for i in range(0, 33):
+        for j in range(0, 33):
+            hex_grid.add_altitude(i, j, random.randint(0,500))
 
     # MODIFICATION DE LA TRANSPARENCE D'UNE CASE
     # hex_grid.add_alpha(X, Y, alpha) où :
     # - X et Y sont les coordonnées de l'hexagone et alpha la transparence associée à cet hexagone.
-    hex_grid.add_alpha(5, 5, 0.7)
+    #hex_grid.add_alpha(5, 5, 0.7)
 
     # RECUPERATION DES VOISINS D'UNE CASE : ils sont entre 2 et 6.
     # hex_grid.get_neighbours(X, Y)
 
-    for _x, _y in hex_grid.get_neighbours(5, 5):
+    """for _x, _y in hex_grid.get_neighbours(5, 5):
         hex_grid.add_color(_x, _y, "blue")
         hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
 
     for _x, _y in hex_grid.get_neighbours(1, 0):
         hex_grid.add_color(_x, _y, "pink")
-        hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
+        hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))"""
 
     # AJOUT DE SYMBOLES SUR LES CASES : avec couleur et bordure
     # hex_grid.add_symbol(X, Y, FORME)
-    hex_grid.add_symbol(10, 8, Circle("red"))
+    """hex_grid.add_symbol(10, 8, Circle("red"))
     hex_grid.add_symbol(9, 8, Rect("green"))
     hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
 
     # AJOUT DE LIENS ENTRE LES CASES : avec couleur
     hex_grid.add_link((5, 5), (6, 6), "red")
-    hex_grid.add_link((8, 8), (7, 8), "purple", thick=4)
+    hex_grid.add_link((8, 8), (7, 8), "purple", thick=4)"""
 
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"blue": "water", "white": "void", "grey": "rock", "darkgreen": "forest", "sand":"yellow"}, debug_coords=True)
+    alias = {
+        "darkblue": "Ocean",
+        "blue": "Mer",
+        "yellow": "Sable",
+        "yellowgreen": "Prairie",
+        "darkgreen": "Forêt",
+        "brown": "Collines",
+        "gray": "Montagne"
+    }
+    hex_grid.show(alias=alias, debug_coords=False)
 
 
 if __name__ == "__main__":

@@ -247,9 +247,9 @@ def main():
 
     # AJOUT DE SYMBOLES SUR LES CASES : avec couleur et bordure
     # hex_grid.add_symbol(X, Y, FORME)
-    hex_grid.add_symbol(10, 8, Circle("red"))
-    hex_grid.add_symbol(9, 8, Rect("green"))
-    hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
+        hex_grid.add_symbol(10, 8, Circle("red"))
+        hex_grid.add_symbol(9, 8, Rect("green"))
+        hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
 
     # AJOUT DE LIENS ENTRE LES CASES : avec couleur
     hex_grid.add_link((5, 5), (6, 6), "red")
