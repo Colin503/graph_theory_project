@@ -141,7 +141,7 @@ class HexGridViewer:
         else:
             res = [(x + dx, y + dy) for dx, dy in ((1, 0), (1, 1), (0, 1), (-1, 0), (0, -1), (1, -1))]
         return [(dx, dy) for dx, dy in res if 0 <= dx < self.__width and 0 <= dy < self.__height]
-
+    
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
@@ -221,7 +221,7 @@ def main():
     Fonction exemple pour présenter le programme ci-dessus.
     """
     # CREATION D'UNE GRILLE 15x15
-    hex_grid = HexGridViewer(10, 10)
+    hex_grid = HexGridViewer(9, 9)
 
     # MODIFICATION DE LA COULEUR D'UNE CASE
     # hex_grid.add_color(X, Y, color) où :

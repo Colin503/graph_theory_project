@@ -26,6 +26,6 @@ graph theory project during my S5 at ISEN
     ** 4  Quel algorithme utiliser pour générer une zone régulière qui s’étend sur la carte (i.e. toutes
         les cases à distance i d’une case) et comment l’adapter ? Implémentez-le **
         
-        On va utiliser l'algorithme diamond square, génération de fractales etc...
-        Obligation d'avoir des côtés de 2**n+1 pour pouvoir le faire marcher
-        Meilleure solution faire d'abord l'algorithm sur un carré et application ensuite sur les hexagones
+        On va utiliser l'algorithm BFS (Breath First Search qui cherche toute les zones autour)
+
+    ** 5 a -créer une méthode permettant de trouver le sommet le plus haut de votre carte. **

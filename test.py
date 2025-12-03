@@ -1,10 +1,5 @@
-import matplotlib.pyplot as plt
+import numpy as np
 
-# rectangle de largeur 4 et hauteur 2
-rect = plt.Rectangle((0, 0), 4, 2, facecolor='skyblue', edgecolor='navy')
+grid = np.array([[0 for _ in range(10)] for _ in range(10)])
 
-fig, ax = plt.subplots()
-ax.add_patch(rect)
-ax.set_xlim(-1, 6)
-ax.set_ylim(-1, 4)
-plt.show()
+print(grid[5,5])

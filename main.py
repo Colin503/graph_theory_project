@@ -86,15 +86,14 @@ class HexGridViewer:
         # mais est nécessaire pour calculer les points
         self.__hexsize = 10
         
-        #Dictionnaire des éléments du terrain
+        # Dictionnaire des éléments du terrain (couleurs CSS valides)
+        # On conserve uniquement : water, sand, grass, forest, mountain
         self.terrain: Dict[str, str] = {
-            "ocean": "darkblue", 
-            "water": "blue", 
-            "sand": "yellow", 
-            "grass": "yellowgreen", 
-            "forest": "darkgreen", 
-            "mountain_low": "brown",
-            "mountain": "gray"
+            "water": "blue",
+            "sand": "yellow",
+            "grass": "yellowgreen",
+            "forest": "darkgreen",
+            "mountain": "gray",
         }
 
         # couleur des hexagones : par défaut, blanc
@@ -146,34 +145,32 @@ class HexGridViewer:
     
     def update_color_from_altitude(self, x: int, y: int, alt: int) -> None:
         """
-        Définit la couleur en fonction de l'altitude.
-        
-        Palier d'altitudes :
-        --> 0-10    : ocean (darkblue)
-        --> 10-20   : water (blue)
-        --> 20-40   : sand (yellow)
-        --> 40-150  : grass (yellowgreen)
-        --> 150-350 : forest (darkgreen)
-        --> 350-450 : mountain_low (brown)
-        --> 450-500 : mountain (gray)
+        Définit la couleur en fonction de l'altitude (valeurs en mètres, 0-500).
+
+        Seuils ajustés pour réduire la proportion d'eau :
+        - 0   - 40  : water (blue)
+        - 41  - 80  : sand (yellow)
+        - 81  - 220 : grass (yellowgreen)
+        - 221 - 380 : forest (darkgreen)
+        - 381 - 500 : mountain (gray)
         """
-        if alt <= 10:
-            terrain_type = "ocean"
-        elif alt <= 20:
+        # Clamp altitude to expected range
+        alt = max(0, min(int(alt), 500))
+
+        if alt <= 40:
             terrain_type = "water"
-        elif alt <= 40:
+        elif alt <= 80:
             terrain_type = "sand"
-        elif alt <= 150:
+        elif alt <= 220:
             terrain_type = "grass"
-        elif alt <= 350:
+        elif alt <= 380:
             terrain_type = "forest"
-        elif alt <= 450:
-            terrain_type = "mountain_low"
         else:
             terrain_type = "mountain"
 
-        if terrain_type in self.terrain:
-            color = self.terrain[terrain_type]
+        # Appliquer la couleur si elle est définie
+        color = self.terrain.get(terrain_type)
+        if color is not None:
             self.__colors[(x, y)] = color
 
     def add_altitude(self, x:int, y:int, alt:int) -> None:
@@ -227,9 +224,9 @@ class HexGridViewer:
                 hexagon.set_alpha(self.__alpha[(row, col)])
 
                 # Ajoute du texte à l'hexagone
-                # if debug_coords:
-                #     text = f"({row}, {col})"  # Le texte que vous voulez afficher
-                #     ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
+                if debug_coords:
+                     text = f"({row}, {col})"  # Le texte que vous voulez afficher
+                     ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
 
                 # ajoute l'hexagone
                 ax.add_patch(hexagon)
@@ -295,23 +292,30 @@ class Graph:
             return False
         return to_node in self.succ[from_node]
     
-    def print(self):
-        for node, succs in self.suc_list.items():
-         print(f"{node} : {' -> '.join(map(str, succs))}")
-
-"""===========================================Algorithme de génération de terrain================================================"""
-
-def diamond_square(size, max_altitude=500, smoothing = 0.5):
-    """
-    Algorithme Diamond-Square pour générer un terrain réaliste avec altitudes progressives.
-    
-    :param width: largeur de la grille
-    :param height: hauteur de la grille
-    :param max_altitude: altitude maximale (0-500)
-    :return: matrice 2D des altitudes
-    """
-    #Initialiser la grille avec des dimensions qui sont des puissances de 2**n+1
-    pass
+    def bfs(self, start_node, distance: int = None) -> Dict[Coords, int]:
+        """
+        Algorithme BFS (Breadth-First Search) qui retourne un dictionnaire avec les distances 
+        de chaque noeud au noeud de départ.
+        
+        :param start_node: le noeud de départ
+        :param distance: si spécifié, retourne seulement les noeuds à cette distance exacte
+        :return: dictionnaire {noeud: distance} ou {noeud: distance} filtré si distance est spécifié
+        """
+        distances = {start_node: 0}
+        queue = [start_node]
+        
+        while queue:
+            current = queue.pop(0)
+            current_distance = distances[current]
+            
+            for neighbor in self.succ[current]:
+                if neighbor not in distances:
+                    distances[neighbor] = current_distance + 1
+                    queue.append(neighbor)
+        
+        if distance is not None:
+            return {node: dist for node, dist in distances.items() if dist == distance}
+        return distances
 
 """=====================================Main=========================================================================="""
 
@@ -321,53 +325,43 @@ def main():
     """
     # CREATION D'UNE GRILLE 17x17
     hex_grid = HexGridViewer(17, 17)
+    size = 17
+    
+    # Créer le graphe de la grille hexagonale
+    graph = Graph(size)
+    
+    # applique les altitudes et crée les arêtes du graphe
+    for i in range(size):
+        for j in range(size):
+            hex_grid.add_altitude(i, j, random.randint(0, 500))
+            # Ajouter les arêtes entre voisins
+            for neighbor in hex_grid.get_neighbours(i, j):
+                if not graph.has_edge((i, j), neighbor):
+                    graph.add_edge((i, j), neighbor)
 
-    # MODIFICATION DE LA COULEUR D'UNE CASE
-    # hex_grid.add_color(X, Y, color) où :
-    # - X et Y sont les coordonnées de l'hexagone et color la couleur associée à cet hexagone.
-    """hex_grid.add_color(5, 5, "purple")
-    hex_grid.add_color(1, 0, "red")"""
-    for i in range(0, 33):
-        for j in range(0, 33):
-            hex_grid.add_altitude(i, j, random.randint(0,500))
-
-    # MODIFICATION DE LA TRANSPARENCE D'UNE CASE
-    # hex_grid.add_alpha(X, Y, alpha) où :
-    # - X et Y sont les coordonnées de l'hexagone et alpha la transparence associée à cet hexagone.
-    #hex_grid.add_alpha(5, 5, 0.7)
-
-    # RECUPERATION DES VOISINS D'UNE CASE : ils sont entre 2 et 6.
-    # hex_grid.get_neighbours(X, Y)
-
-    """for _x, _y in hex_grid.get_neighbours(5, 5):
-        hex_grid.add_color(_x, _y, "blue")
-        hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
-
-    for _x, _y in hex_grid.get_neighbours(1, 0):
-        hex_grid.add_color(_x, _y, "pink")
-        hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))"""
-
-    # AJOUT DE SYMBOLES SUR LES CASES : avec couleur et bordure
-    # hex_grid.add_symbol(X, Y, FORME)
-    """hex_grid.add_symbol(10, 8, Circle("red"))
-    hex_grid.add_symbol(9, 8, Rect("green"))
-    hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
-
-    # AJOUT DE LIENS ENTRE LES CASES : avec couleur
-    hex_grid.add_link((5, 5), (6, 6), "red")
-    hex_grid.add_link((8, 8), (7, 8), "purple", thick=4)"""
+    # BFS : Afficher toutes les zones à distance i d'une case de départ
+    start_x, start_y = 8, 8
+    distance_target = 3
+    
+    # Récupérer tous les noeuds à la distance cible
+    nodes_at_distance = graph.bfs((start_x, start_y), distance=distance_target)
+    
+    # Colorer le noeud de départ en rouge
+    hex_grid.add_color(start_x, start_y, "red")
+    
+    # Colorer tous les noeuds à la distance cible en violet
+    for (x, y) in nodes_at_distance.keys():
+        hex_grid.add_color(x, y, "purple")
 
     # AFFICHAGE DE LA GRILLE
-    # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
-    # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
     alias = {
-        "darkblue": "Ocean",
         "blue": "Mer",
         "yellow": "Sable",
         "yellowgreen": "Prairie",
         "darkgreen": "Forêt",
-        "brown": "Collines",
-        "gray": "Montagne"
+        "gray": "Montagne",
+        "red": "Départ",
+        "purple": f"Distance {distance_target}"
     }
     hex_grid.show(alias=alias, debug_coords=False)
 
@@ -377,7 +371,7 @@ if __name__ == "__main__":
 
 # # Quel algorithme utiliser pour générer une zone régulière qui s'étend sur la carte (i.e. toutes les cases à
 # distance $i$ d'une case)?
-#l'algorithme diamond square
+#L'algorithm BFS
 
 # # Quel algorithme permettrait de tracer des rivières à partir d'un point donné sur la carte, en ajoutant une
 # contrainte d'altitude descendante en prenannt le chemin le plus long possible ?
