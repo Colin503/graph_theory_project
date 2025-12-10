@@ -265,6 +265,22 @@ class HexGridViewer:
         ax.legend(handles=legend_patches, loc='center left', bbox_to_anchor=(1, 0.5))
         plt.show()
 
+    def find_highest_vertex(self) -> Tuple[Coords, int]:
+        """
+        Trouve le sommet avec l'altitude la plus haute dans la grille.
+        
+        :return: tuple (coordonnées, altitude) du sommet le plus haut
+        """
+        highest_coord = None
+        highest_altitude = -1
+        
+        for coord, alt in self.altitude.items():
+            if alt > highest_altitude:
+                highest_altitude = alt
+                highest_coord = coord
+        
+        return (highest_coord, highest_altitude)
+
 """==============================================================================================================="""
 
 
@@ -299,22 +315,32 @@ class Graph:
         
         :param start_node: le noeud de départ
         :param distance: si spécifié, retourne seulement les noeuds à cette distance exacte
-        :return: dictionnaire {noeud: distance} ou {noeud: distance} filtré si distance est spécifié
+        :return: dictionnaire {noeud: distance}
         """
+        # Initialiser les distances avec le noeud de départ
         distances = {start_node: 0}
-        queue = [start_node]
         
+        # Créer une queue avec le noeud de départ
+        queue = [start_node]
         while queue:
             current = queue.pop(0)
-            current_distance = distances[current]
             
+            # Parcourir tous les voisins du noeud actuel
             for neighbor in self.succ[current]:
                 if neighbor not in distances:
-                    distances[neighbor] = current_distance + 1
+                    new_distance = distances[current] + 1
+                    distances[neighbor] = new_distance
                     queue.append(neighbor)
         
+        # Si une distance spécifique est demandée, filtrer les résultats
         if distance is not None:
-            return {node: dist for node, dist in distances.items() if dist == distance}
+            filtered_distances = {}
+            for node, dist in distances.items():
+                if dist == distance:
+                    filtered_distances[node] = dist
+            return filtered_distances
+        
+        # Retourner toutes les distances
         return distances
 
 """=====================================Main=========================================================================="""
@@ -339,11 +365,15 @@ def main():
                 if not graph.has_edge((i, j), neighbor):
                     graph.add_edge((i, j), neighbor)
 
+    # Trouver le sommet le plus haut
+    highest_coord, highest_altitude = hex_grid.find_highest_vertex()
+    print(f"Sommet le plus haut: {highest_coord} avec une altitude de {highest_altitude}m")
+    
     # BFS : Afficher toutes les zones à distance i d'une case de départ
     start_x, start_y = 8, 8
     distance_target = 3
     
-    # Récupérer tous les noeuds à la distance cible
+    #Récupérer tous les noeuds à la distance cible
     nodes_at_distance = graph.bfs((start_x, start_y), distance=distance_target)
     
     # Colorer le noeud de départ en rouge
@@ -352,6 +382,10 @@ def main():
     # Colorer tous les noeuds à la distance cible en violet
     for (x, y) in nodes_at_distance.keys():
         hex_grid.add_color(x, y, "purple")
+    
+    # Colorer le sommet le plus haut en orange
+    if highest_coord is not None:
+        hex_grid.add_color(highest_coord[0], highest_coord[1], "orange")
 
     # AFFICHAGE DE LA GRILLE
     alias = {
@@ -361,26 +395,11 @@ def main():
         "darkgreen": "Forêt",
         "gray": "Montagne",
         "red": "Départ",
-        "purple": f"Distance {distance_target}"
+        #"purple": f"Distance {distance_target}",
+        "orange": "Plus haut sommet"
     }
     hex_grid.show(alias=alias, debug_coords=False)
 
 
 if __name__ == "__main__":
     main()
-
-# # Quel algorithme utiliser pour générer une zone régulière qui s'étend sur la carte (i.e. toutes les cases à
-# distance $i$ d'une case)?
-#L'algorithm BFS
-
-# # Quel algorithme permettrait de tracer des rivières à partir d'un point donné sur la carte, en ajoutant une
-# contrainte d'altitude descendante en prenannt le chemin le plus long possible ?
-
-# # Quel algorithme utiliser pour aller d'un point A à un point B ?
-# BFS
-
-# # Quel algorithme utiliser pour créer un réseau de routes le moins couteux possible entre x villes, pour qu'elles
-# sont toutes interconnectées ?
-#Kruskal
-
-##

@@ -29,3 +29,7 @@ graph theory project during my S5 at ISEN
         On va utiliser l'algorithm BFS (Breath First Search qui cherche toute les zones autour)
 
     ** 5 a -créer une méthode permettant de trouver le sommet le plus haut de votre carte. **
+        Regardant chaque sommet en fonction de son altitude
+
+        b -Quel algorithme permettrait de tracer des rivières à partir d’un point donné sur la carte, en
+        ajoutant une contrainte d’altitude descendante en prenant le chemin le plus long possible ?

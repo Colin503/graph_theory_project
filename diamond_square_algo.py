@@ -1,13 +1,13 @@
 import numpy as np
 import random
 
-def diamond_square(grid, roughness=0.5, max_altitude=500):
+def diamond_square(grid, roughness=0.5, max_altitude=12):
     #Avoir les coins initiaux avec des valeurs aléatoires
     h = len(grid)
-    grid[0, 0] = random.randint(0, max_altitude)
-    grid[0, h-1] = random.randint(0, max_altitude)
-    grid[h-1, 0] = random.randint(0, max_altitude)
-    grid[h-1, h-1] = random.randint(0, max_altitude) 
+    grid[0, 0] = random.randint(1, max_altitude)
+    grid[0, h-1] = random.randint(1, max_altitude)
+    grid[h-1, 0] = random.randint(1, max_altitude)
+    grid[h-1, h-1] = random.randint(1, max_altitude) 
     i = h - 1
 
     #Boucle principale
@@ -48,5 +48,5 @@ def diamond_square(grid, roughness=0.5, max_altitude=500):
 
 
 
-grid = [[0 for _ in range(9)] for _ in range(9)]
+grid = [[0 for _ in range(17)] for _ in range(17)]
 print(diamond_square(np.array(grid)))
