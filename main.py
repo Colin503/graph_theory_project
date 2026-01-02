@@ -1,39 +1,73 @@
-#Projet - Théorie des graphes
-# ISEN - S5
-# Auteur : Colin Rousseau & Gaspard Vieujean
+"""
+Programme basique en python3.8 permettant via matplolib de visualiser une grille hexagonale.
 
-"""=====================================Importation des librairies nécessaires====================================="""
+Elle propose simplement:
+ - l'affichage des hexagones, avec des couleurs et une opacité
+ - l'ajout de formes colorées sur les hexagones
+ - l'ajout de liens colorés entre les hexagones
+
+Contact: sebastien.gamblin@isen-ouest.yncrea.fr
+"""
+
+
+
+#Enlève les "" des objet qu'on peut avoir
 from __future__ import annotations
 
+#Permet la création de classes abstraites & méthodes abstraites
 from abc import abstractmethod
+
+#Permet d'initialiser une valeur par défault pour des clés qui n'ont pas été définies
 from collections import defaultdict
 
+#Intégration du hasard
 import random
+
+#Importations basiques de python pour inclure dictionnaire, tuples, et des listes
 from typing import Dict, Tuple, List
 
-import matplotlib.colors as mcolors
-from matplotlib.patches import RegularPolygon
+#Visualisation de données / dessins / graphiques
 import matplotlib.pyplot as plt
+
+#Importations des couleurs avec une précision
+import matplotlib.colors as mcolors
+
+#Importations de polygones régulier
+from matplotlib.patches import RegularPolygon
+
+#Gère propriétés de style par rapport aux formes
 from matplotlib.patches import Patch
+
+#Crée des palets de couleur spécifiques
 from matplotlib.colors import LinearSegmentedColormap
+
+#Calculs numériques & tableaux de données 
 import numpy as np
 
-"""==============================================================================================================="""
+#Importer la dequeue en python
+from collections import deque
 
-Coords = Tuple[int, int]  # un simple alias de typage python
+# un simple alias de typage python : type (x,y)
+Coords = Tuple[int, int]  
 
-"""======================================Défintion des classes géométriques======================================"""
+# il y a mieux en python :
+# - 3.11: Coords: AliasType = Tuple[int, int]
+# - 3.12: type Coords = Tuple[int, int]
+
 
 class Forme:
     """Superclasse abstraite qui sauvegarde une couleur et impose une méthode 'get' qui retourne un Patch."""
 
     def __init__(self, color: str = "black", edgecolor: str = None):
-        assert color in mcolors.CSS4_COLORS #vérification que la couleur est bien valide
+        assert color in mcolors.CSS4_COLORS #vérification de la couleur donné
         if edgecolor is not None:
-            assert edgecolor in mcolors.CSS4_COLORS #vérification que la couleur est bien valide
+            assert edgecolor in mcolors.CSS4_COLORS #vérification de la couleur de bordure donné
+        #Affectation
         self._color = color
         self._edgecolor = edgecolor
 
+
+    #Méthode get qui impose un Patch en retour
     @abstractmethod
     def get(self, x: float, y: float, h: int) -> Patch:
         pass
@@ -42,13 +76,14 @@ class Forme:
 class Rect(Forme):
     """Redéfinition d'une Forme pour un rectangle."""
 
-    def __init__(self, *args, **kwargs): # *args et **kwargs quand on cherche a récupérer des arguments non spécifiés
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs): #* arguments possible dans un tuple, ** argument possibles dans un dictionnaire
+        super().__init__(*args, **kwargs) #Super constructeur de la classe forme
 
-    def get(self, x: float, y: float, h: int) -> plt.Rectangle:
-        """Retourne un Patch rectangle centré en (x,y) de hauteur h.""" 
+    def get(self, x: float, y: float, h: int) -> plt.Rectangle: #Méthode get : rectangle
+        #plt.Rectangle(cordonnées de création,taille,couleur,couleur des bordures)
         return plt.Rectangle((x - h / 2, y - h / 2), h, h, facecolor=self._color, edgecolor=self._edgecolor)
-    
+
+
 class Circle(Forme):
     """Redéfinition d'une Forme pour un cercle."""
 
@@ -56,19 +91,18 @@ class Circle(Forme):
         super().__init__(*args, **kwargs)
 
     def get(self, x: float, y: float, h: int) -> plt.Circle:
-        """Retourne un Patch cercle centré en (x,y) de rayon h/2."""
+        #plt.Circle(cordonnées de création, taille, couleur, couleur des bordures)
         return plt.Circle((x, y), h / 2, facecolor=self._color, edgecolor=self._edgecolor)
 
 
-
-"""=====================================Définition de la classe HexGridViewer======================================"""
-
 class HexGridViewer:
     """
-    Classe permettant d'afficher une grille hexagonale. Elle se crée via son constructeur avec deux arguments: la largeur et la hauteur.
-    Deux attributs gèrent l'apparence des hexagones: colors et alpha (couleur, transparence).
-    Chaque hexagone est représenté par une tuple : (x, y) spécifique dans la grille. Ces tuples sont les clés
-    des dictionnaires colors et alpha, que vous pouvez modifier via les méthodes add_color et add_alpha.
+    Classe permettant d'afficher une grille hexagonale. Elle se crée via son constructeur avec deux arguments:
+    la largeur et la hauteur.
+    Deux attributs gèrent l'apparence des hexagones: colors et alpha, pour respectivement représenter la
+    couleur et la transparence des hexagones.
+    Chaque hexagone est représenté par une tuple : (x, y) spécifique dans la grille. 
+    Ces tuples sont les clés des dictionnaires colors et alpha, que vous pouvez modifier via les méthodes add_color et add_alpha.
 
     Il est aussi possible d'ajouter des symboles Rectangle ou Circle au milieu des hexagones, ainsi que des liens
     entre les centres des hexagones.
@@ -85,148 +119,363 @@ class HexGridViewer:
         # modifié par défaut par matplolib, la modification ne sert à rien
         # mais est nécessaire pour calculer les points
         self.__hexsize = 10
-        
-        # Dictionnaire des éléments du terrain (couleurs CSS valides)
-        # On conserve uniquement : water, sand, grass, forest, mountain
-        self.terrain: Dict[str, str] = {
-            "water": "blue",
-            "sand": "yellow",
-            "grass": "yellowgreen",
-            "forest": "darkgreen",
-            "mountain": "gray",
-        }
 
         # couleur des hexagones : par défaut, blanc
-        #self.__colors: Dict[Coords, str] = defaultdict(lambda: self.terrain["forest"])
+        #Lorsqu'on accède à une coordonnée qui n'a pas de couleur affecté, ce sera blanc
         self.__colors: Dict[Coords, str] = defaultdict(lambda: "white")
 
-        #Altitude des éléments du terrain : par défaut, 0.0 niveau de la mer
-        #Altitude Max : 500(montagne)
-        self.altitude: Dict[Coords, int]= defaultdict(lambda: 0)
-
         # transparence des hexagones : par défaut, 1
+        #De même que les couleurs
         self.__alpha: Dict[Coords, float] = defaultdict(lambda: 1)
 
         # symboles sur les hexagones, par défaut, aucun symbole sur une case.
         # Limitation : un seul symbole par case !
+        #Le symbole est soit une forme ou soit None
         self.__symbols: Dict[Coords, Forme | None] = defaultdict(lambda: None)
 
         # liste de liens à affichager entre les cases.
         self.__links: List[Tuple[Coords, Coords, str, int]] = []
 
+        #Altitudes du terrain
+        self.__altitude: Dict[Coords, int] = defaultdict(lambda: 0)
+
+        #Définitions des alt max et min
+        self.__MIN_alt = 0
+        self.__MAX_alt = 100
+
+    #Retourne la largeur
     def get_width(self) -> int:
         return self.__width
 
+    #Retour la longueur
     def get_height(self) -> int:
         return self.__height
 
+    #Ajouter une couleur en vérifiant qu'elle existe bien dans mcolors
     def add_color(self, x: int, y: int, color: str) -> None:
         assert self.__colors[(x, y)] in mcolors.CSS4_COLORS, \
             f"self.__colors type must be in matplotlib colors. What is {self.__colors[(x, y)]} ?"
         self.__colors[(x, y)] = color
 
+    #Ajouter un indice alpha à des coordonnées 
     def add_alpha(self, x: int, y: int, alpha: float) -> None:
         assert 0 <= self.__alpha[
             (x, y)] <= 1, f"alpha value must be between 0 and 1. What is {self.__alpha[(x, y)]} ?"
         self.__alpha[(x, y)] = alpha
 
+    #Ajouter un symbole à des coordonnées
     def add_symbol(self, x: int, y: int, symbol: Forme) -> None:
         self.__symbols[(x, y)] = symbol
 
+    #Ajoute un lien entre deux cases, soit 4 coordonnées
     def add_link(self, coord1: Coords, coord2: Coords, color: str = None, thick=2) -> None:
         self.__links.append((coord1, coord2, color if color is not None else "black", thick))
 
+    #Obtient la couleur de coordonnées précise
     def get_color(self, x: int, y: int) -> str:
         return self.__colors[(x, y)]
 
+    #Obtient l'alpha de coordonnées précise
     def get_alpha(self, x: int, y: int) -> float:
         return self.__alpha[(x, y)]
-    
-    
-    def update_color_from_altitude(self, x: int, y: int, alt: int) -> None:
-        """
-        Définit la couleur en fonction de l'altitude (valeurs en mètres, 0-500).
 
-        Seuils ajustés pour réduire la proportion d'eau :
-        - 0   - 40  : water (blue)
-        - 41  - 80  : sand (yellow)
-        - 81  - 220 : grass (yellowgreen)
-        - 221 - 380 : forest (darkgreen)
-        - 381 - 500 : mountain (gray)
-        """
-        # Clamp altitude to expected range
-        alt = max(0, min(int(alt), 500))
-
-        if alt <= 40:
-            terrain_type = "water"
-        elif alt <= 80:
-            terrain_type = "sand"
-        elif alt <= 220:
-            terrain_type = "grass"
-        elif alt <= 380:
-            terrain_type = "forest"
-        else:
-            terrain_type = "mountain"
-
-        # Appliquer la couleur si elle est définie
-        color = self.terrain.get(terrain_type)
-        if color is not None:
-            self.__colors[(x, y)] = color
-
-    def add_altitude(self, x:int, y:int, alt:int) -> None:
-        alt = max(0,min(alt,500)) #Eviter les cas extrême
-        self.altitude[(x,y)] = alt
-        self.update_color_from_altitude(x,y,alt)
-
+    #Obtient tout les voisins d'une case hexagone renvoie une liste de coordonnées [(x,y),(x,y)]
     def get_neighbours(self, x: int, y: int) -> List[Coords]:
 
         """
         Retourne la liste des coordonnées des hexagones voisins de l'hexagone en coordonnées (x,y).
         """
 
+
         if y % 2 == 0:
+            #Cas ou y est paire, res [(2,0)...]
             res = [(x + dx, y + dy) for dx, dy in ((1, 0), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1))]
         else:
+            #Cas ou y est impaire
             res = [(x + dx, y + dy) for dx, dy in ((1, 0), (1, 1), (0, 1), (-1, 0), (0, -1), (1, -1))]
+            #Return des voisins en vérifiant qu'ils sont bien dans les limites 
         return [(dx, dy) for dx, dy in res if 0 <= dx < self.__width and 0 <= dy < self.__height]
+
+    #Ajouter une altitude a des coordonnées
+    def add_altitude(self, x: int, y:int, alt) -> None:
+        assert self.__MIN_alt <= alt <= self.__MAX_alt, "l'altitude doit être entre 0 et 100"
+
+        self.__altitude[(x,y)] = alt
+        self.update_terrain_from_altitude(x,y)
+
+
+    #Get the altitude
+    def get_altitude(self, x:int, y:int) -> int:
+        return self.__altitude[(x,y)]
+
+    #Return the node with the highest altitude
+    def highest_altitude(self) -> Coords:
+        altitudes = self.__altitude
+        if not altitudes:
+            return ((0.0),0)
+        
+        highest_coord = None
+        highest_alt = -1
+
+        for coord, alt in altitudes.items():
+            if alt > highest_alt:
+                highest_alt = alt
+                highest_coord = coord
+        return (highest_coord,highest_alt)
+
+    #Update the terrain from the altitude
+    def update_terrain_from_altitude(self, x: int, y: int) -> None:
+        alt = self.__altitude[(x,y)]
+
+        if alt < 35:
+            terrain, color = "eau", "dodgerblue"
+        elif alt < 48:
+            terrain, color = "herbe", "lightgreen"
+        elif alt < 62:
+            terrain, color = "foret", "darkgreen"
+        elif alt < 80:
+            terrain, color = "montagne", "lightgray"
+        else:
+            terrain, color = "montagne", "white"
+    
+        self.add_color(x, y, color)
+        # Mettre à jour l'alpha en fonction de l'altitude
+        alpha = alt / self.__MAX_alt
+        self.add_alpha(x, y, alpha)
+
+    #Implementation of the BFs on the graph based on the coords and distance
+    def bfs(self, start_x: int, start_y:int, max_distance: int) -> Dict[int,Coords]:
+        start = (start_x,start_y)
+        visited = {start : 0}
+        queue = deque([(start, 0)])
+        case_per_distance = {}
+        
+        while queue:
+            (x,y) , distance = queue.popleft()
+
+            if distance not in case_per_distance:
+                case_per_distance[distance] = []
+            case_per_distance[distance].append((x,y))
+
+            if distance < max_distance:
+                neighbors = self.get_neighbours(x,y)
+                for neighbor in neighbors:
+                    if neighbor not in visited:
+                        visited[neighbor] = distance+1
+                        queue.append((neighbor,distance+1))
+        #print(case_per_distance)
+        return case_per_distance
+    
+    def generate_river(self, start_x: int, start_y: int) -> List[Coords]:
+        """
+        Génère une rivière à partir d'un point donné en utilisant une stack (DFS)
+        avec contrainte d'altitude descendante (chemin le plus long possible)
+        Choisit toujours le voisin avec l'altitude la plus basse
+        """
+        start = (start_x, start_y)
+        visited = {start}
+        stack = [start]
+        river_path = []
+        
+        while stack:
+            current = stack.pop()
+            river_path.append(current)
+            x, y = current
+            current_alt = self.get_altitude(x, y)
+            neighbors = self.get_neighbours(x, y)
+            
+            valid_neighbors = [
+                neighbor for neighbor in neighbors 
+                if neighbor not in visited and self.get_altitude(neighbor[0], neighbor[1]) < current_alt
+            ]
+            
+            if valid_neighbors:
+                next_node = min(valid_neighbors, key=lambda n: self.get_altitude(n[0], n[1]))
+                visited.add(next_node)
+                stack.append(next_node)
+        
+        return river_path
+
+    def generate_rivers_network(self, start_x: int, start_y: int) -> Dict[Coords, List[Coords]]:
+        """
+        Génère un réseau de rivières avec embranchements (structure en arbre)
+        """
+        start = (start_x, start_y)
+        rivers_network = {start: []}
+        stack = [start]
+        visited = {start}
+        
+        while stack:
+            current = stack.pop()
+            x, y = current
+            current_alt = self.get_altitude(x, y)
+            neighbors = self.get_neighbours(x, y)
+            
+            # Tous les voisins avec altitude descendante
+            valid_neighbors = [
+                neighbor for neighbor in neighbors 
+                if neighbor not in visited and self.get_altitude(neighbor[0], neighbor[1]) < current_alt
+            ]
+            
+            # Ajouter tous les voisins valides (crée les embranchements)
+            for neighbor in valid_neighbors:
+                visited.add(neighbor)
+                stack.append(neighbor)
+                rivers_network[current].append(neighbor)
+                rivers_network[neighbor] = []
+    
+        return rivers_network
+
+    def generate_procedural_map(self, seed: int = None):
+        """
+        Génère une carte procédurale avec l'algorithme Diamond-Square
+        et rivières cohérentes
+        """
+        if seed:
+            random.seed(seed)
+        
+        self._diamond_square()
+
+        # Mélanges pour casser la régularité et créer variations locales
+        self._mix_terrain(iterations=3, blend=0.55, noise=4)
+        self._pepper_local(fraction=0.03, amp=6)
+        self._mix_terrain(iterations=1, blend=0.35, noise=2)
+
+        # Générer des lacs : régions basses continues
+        self._generate_lakes(lake_threshold=30, min_size=3, lake_alt=10)
+
+        # Générer les rivières uniquement depuis le sommet le plus haut
+        highest_coord, highest_alt = self.highest_altitude()
+        if highest_alt > 70:
+            river = self.generate_rivers_network(highest_coord[0], highest_coord[1])
+            for parent, children in river.items():
+                for child in children:
+                    x, y = child
+                    # Ne pas annuler un lac déjà créé (altitude <= lake_alt)
+                    if self.get_altitude(x, y) > 15:
+                        self.add_altitude(x, y, 15)
+
+        # Mettre à jour les alphas et couleurs finales
+        self.update_all_alpha_from_altitude()
+
+    def _diamond_square(self):
+        """
+        Algorithme Diamond-Square pour générer des altitudes réalistes avec variation
+        """
+        # Initialiser les 4 coins avec altitudes plus hautes et variées
+        self.add_altitude(0, 0, random.randint(50, 85))
+        self.add_altitude(self.__width - 1, 0, random.randint(50, 85))
+        self.add_altitude(0, self.__height - 1, random.randint(50, 85))
+        self.add_altitude(self.__width - 1, self.__height - 1, random.randint(50, 85))
+        
+        step_size = self.__width - 1
+        scale = 25  
+        
+        while step_size > 1:
+            half_step = step_size // 2
+            
+            # Étape Diamond
+            for y in range(0, self.__height - 1, step_size):
+                for x in range(0, self.__width - 1, step_size):
+                    avg = (self.get_altitude(x, y) + 
+                           self.get_altitude(x + step_size, y) +
+                           self.get_altitude(x, y + step_size) +
+                           self.get_altitude(x + step_size, y + step_size)) / 4
+                    
+                    rand = random.randint(-scale, scale)
+                    cx, cy = x + half_step, y + half_step
+                    alt = max(0, min(100, int(avg + rand)))
+                    self.add_altitude(cx, cy, alt)
+            
+            # Étape Square
+            for y in range(0, self.__height, half_step):
+                for x in range((y + half_step) % step_size, self.__width, step_size):
+                    count = 0
+                    total = 0
+                    
+                    # Haut
+                    if y - half_step >= 0:
+                        total += self.get_altitude(x, y - half_step)
+                        count += 1
+                    # Bas
+                    if y + half_step < self.__height:
+                        total += self.get_altitude(x, y + half_step)
+                        count += 1
+                    # Gauche
+                    if x - half_step >= 0:
+                        total += self.get_altitude(x - half_step, y)
+                        count += 1
+                    # Droite
+                    if x + half_step < self.__width:
+                        total += self.get_altitude(x + half_step, y)
+                        count += 1
+                    
+                    if count > 0:
+                        avg = total / count
+                        rand = random.randint(-scale, scale)
+                        alt = max(0, min(100, int(avg + rand)))
+                        if self.get_altitude(x, y) == 0:
+                            self.add_altitude(x, y, alt)
+            
+            step_size = half_step
+            scale = max(5, int(scale * 0.65))  # Réduit pour plus de détails mélangés
 
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
         Permet d'afficher via matplotlib la grille hexagonale. 
         :param alias: dictionnaire qui permet de modifier le label d'une couleur. Ex: {"white": "snow"} 
-        :param debug_coords: booléen pour afficher les coordonnées des cases.
-        
+        :param debug_coords: booléen pour afficher les coordonnées des
+        cases. 
         Attention, le texte est succeptible de plus ou moins bien s'afficher en fonction de la taille de la
         fenêtre matplotlib et des dimensions de la grille.
         """
-
+        #Modifier le label d'une couleur
         if alias is None:
             alias = {}
 
+        #Crée une figure carré de 8x8 et un axe de 8 sur 8
         fig, ax = plt.subplots(figsize=(8, 8))
+
+        #Permettre que l'axe x et y soient pareille        
         ax.set_aspect('equal')
 
+        #Hauteur de la taille du hexsize prédfini
         h = self.__hexsize
+
+        #Définition du dictionnaire des coordonnées
         coords = {}
+
+        #Création de la grille hexagonale en Flatop
         for row in range(self.__height):
             for col in range(self.__width):
-                x = col * 1.5 * h
-                y = row * np.sqrt(3) * h
-                if col % 2 == 1:
-                    y += np.sqrt(3) * h / 2
-                # coords[(row, col)] = (x, y)
+                x = col * 1.5 * h #1,5 fois la taille * la hauteur de 10
+                y = row * np.sqrt(3) * h #racine de 3 fois la colonne
 
+                #Colonne impaire
+                if col % 2 == 1:
+                    #Ajout d'un petit décalage pour faire une grille hexgonale
+                    y += np.sqrt(3) * h / 2
+
+                #Association colonnes et coordonnées 
+                coords[(row, col)] = (x, y)
+
+                #Définition du centre
                 center = (x, y)
-                hexagon = RegularPolygon(center, numVertices=6, radius=h, orientation=np.pi / 6,
-                                         edgecolor="black")
+
+                #Création du polygone = hexagone en radian
+                hexagon = RegularPolygon(center, numVertices=6, radius=h, orientation=np.pi / 6, edgecolor="black")
+
+                #Mettre les couleurs en fonction de celle prédéfini
                 hexagon.set_facecolor(self.__colors[(row, col)])
+
+                #De même pour le alpha
                 hexagon.set_alpha(self.__alpha[(row, col)])
 
                 # Ajoute du texte à l'hexagone
-                if debug_coords:
-                     text = f"({row}, {col})"  # Le texte que vous voulez afficher
-                     ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
+                #if debug_coords:
+                #    text = f"({row}, {col})"  # Le texte que vous voulez afficher
+                #    ax.annotate(text, xy=center, ha='center', va='center', fontsize=8, color='black')
 
                 # ajoute l'hexagone
                 ax.add_patch(hexagon)
@@ -237,10 +486,12 @@ class HexGridViewer:
                     ax.add_patch(forme.get(x, y, h))
 
         for coord1, coord2, color, thick in self.__links:
+            #Vérifié si deux cases ne sont pas déja connecté
             if coord1 not in coords or coord2 not in coords:
                 continue
             x1, y1 = coords[coord1]
             x2, y2 = coords[coord2]
+            #Liaison entre deux case
             plt.gca().add_line(plt.Line2D([x1, x2], [y1, y2], color=color, linewidth=thick))
 
         ax.set_xlim(-h, self.__width * 1.5 * h + h)
@@ -252,154 +503,109 @@ class HexGridViewer:
             if color in alias:
                 ks.append(alias[color])
             else:
+                #légende
                 ks.append(color)
+            #couleur
             vs.append(color)
 
+        #Création de la légende couleur/ terrain
         gradient_cmaps = [
             LinearSegmentedColormap.from_list('custom_cmap', ['white', vs[i]]) for i in range(len(vs))]
+        
         # Créez une liste de patch à partir des polygones
         legend_patches = [
-            Patch(label=ks[i], edgecolor="black", linewidth=1, facecolor=gradient_cmaps[i](0.9), )
+            Patch(label=ks[i], edgecolor="black", linewidth=1, facecolor=gradient_cmaps[i](0.5), )
             for i in range(len(ks))]
+        
         # Ajoutez la légende à la figure
         ax.legend(handles=legend_patches, loc='center left', bbox_to_anchor=(1, 0.5))
         plt.show()
 
-    def find_highest_vertex(self) -> Tuple[Coords, int]:
-        """
-        Trouve le sommet avec l'altitude la plus haute dans la grille.
-        
-        :return: tuple (coordonnées, altitude) du sommet le plus haut
-        """
-        highest_coord = None
-        highest_altitude = -1
-        
-        for coord, alt in self.altitude.items():
-            if alt > highest_altitude:
-                highest_altitude = alt
-                highest_coord = coord
-        
-        return (highest_coord, highest_altitude)
 
-"""==============================================================================================================="""
-
-
-class Graph:
-    """Classe représentant un graphe sous une liste de sucesseurs"""
-
-    def __init__(self, n: int):
-        self.succ = defaultdict(list) # dictionnaire des listes de successeurs, si on accède à une clé inexistante, on crée une liste vide
-        for i in range(n):
-            for j in range(n):
-                self.succ[(i, j)] = []
-
-    def add_edge(self, from_node, to_node):
-        """Ajoute une arête entre from_node et to_node"""
-        self.succ[from_node].append(to_node)
-        self.succ[to_node].append(from_node)  # graphe non orienté
-
-    def add_node(self, node):
-        """Ajoute un noeud au graphe"""
-        self.succ[node] = []
-
-    def has_edge(self, from_node, to_node) -> bool:
-        """Retourne True si une arête existe entre from_node et to_node, False sinon"""
-        if from_node not in self.succ or to_node not in self.succ:
-            return False
-        return to_node in self.succ[from_node]
-    
-    def bfs(self, start_node, distance: int = None) -> Dict[Coords, int]:
-        """
-        Algorithme BFS (Breadth-First Search) qui retourne un dictionnaire avec les distances 
-        de chaque noeud au noeud de départ.
-        
-        :param start_node: le noeud de départ
-        :param distance: si spécifié, retourne seulement les noeuds à cette distance exacte
-        :return: dictionnaire {noeud: distance}
-        """
-        # Initialiser les distances avec le noeud de départ
-        distances = {start_node: 0}
-        
-        # Créer une queue avec le noeud de départ
-        queue = [start_node]
-        while queue:
-            current = queue.pop(0)
-            
-            # Parcourir tous les voisins du noeud actuel
-            for neighbor in self.succ[current]:
-                if neighbor not in distances:
-                    new_distance = distances[current] + 1
-                    distances[neighbor] = new_distance
-                    queue.append(neighbor)
-        
-        # Si une distance spécifique est demandée, filtrer les résultats
-        if distance is not None:
-            filtered_distances = {}
-            for node, dist in distances.items():
-                if dist == distance:
-                    filtered_distances[node] = dist
-            return filtered_distances
-        
-        # Retourner toutes les distances
-        return distances
-
-"""=====================================Main=========================================================================="""
 
 def main():
     """
     Fonction exemple pour présenter le programme ci-dessus.
     """
-    # CREATION D'UNE GRILLE 17x17
-    hex_grid = HexGridViewer(17, 17)
     size = 17
-    
-    # Créer le graphe de la grille hexagonale
-    graph = Graph(size)
-    
-    # applique les altitudes et crée les arêtes du graphe
-    for i in range(size):
-        for j in range(size):
-            hex_grid.add_altitude(i, j, random.randint(0, 500))
-            # Ajouter les arêtes entre voisins
-            for neighbor in hex_grid.get_neighbours(i, j):
-                if not graph.has_edge((i, j), neighbor):
-                    graph.add_edge((i, j), neighbor)
+    center = (size-1)/2
 
-    # Trouver le sommet le plus haut
-    highest_coord, highest_altitude = hex_grid.find_highest_vertex()
-    print(f"Sommet le plus haut: {highest_coord} avec une altitude de {highest_altitude}m")
+    # CREATION D'UNE GRILLE TAILLE SIZE
+    hex_grid = HexGridViewer(size, size)
     
-    # BFS : Afficher toutes les zones à distance i d'une case de départ
-    start_x, start_y = 8, 8
-    distance_target = 3
+    # QUESTION 6 : Génération procédurale avec Diamond-Square
+    hex_grid.generate_procedural_map(seed=42)
     
-    #Récupérer tous les noeuds à la distance cible
-    nodes_at_distance = graph.bfs((start_x, start_y), distance=distance_target)
+    # QUESTION 5a : Trouver le sommet le plus haut
+    highest_coord, highest_alt = hex_grid.highest_altitude()
+
+    # QUESTION 5c : Générer un réseau de rivières avec embranchements
+    rivers_network = hex_grid.generate_rivers_network(highest_coord[0], highest_coord[1])
     
-    # Colorer le noeud de départ en rouge
-    hex_grid.add_color(start_x, start_y, "red")
-    
-    # Colorer tous les noeuds à la distance cible en violet
-    for (x, y) in nodes_at_distance.keys():
-        hex_grid.add_color(x, y, "purple")
-    
-    # Colorer le sommet le plus haut en orange
-    if highest_coord is not None:
-        hex_grid.add_color(highest_coord[0], highest_coord[1], "orange")
+
+    # MODIFICATION DE LA COULEUR D'UNE CASE
+    # hex_grid.add_color(X, Y, color) où :
+    # - X et Y sont les coordonnées de l'hexagone et color la couleur associée à cet hexagone.
+    #hex_grid.add_color(5, 5, "purple")
+    #hex_grid.add_color(1, 0, "red")
+
+    # MODIFICATION DE LA TRANSPARENCE D'UNE CASE
+    # hex_grid.add_alpha(X, Y, alpha) où :
+    # - X et Y sont les coordonnées de l'hexagone et alpha la transparence associée à cet hexagone.
+    #hex_grid.add_alpha(5, 5, 0.7)
+
+    # RECUPERATION DES VOISINS D'UNE CASE : ils sont entre 2 et 6.
+    # hex_grid.get_neighbours(X, Y)
+
+    #for _x, _y in hex_grid.get_neighbours(5, 5):
+    #    hex_grid.add_color(_x, _y, "blue")
+    #    hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
+
+    #for _x, _y in hex_grid.get_neighbours(1, 0):
+    #    hex_grid.add_color(_x, _y, "pink")
+    #    hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
+
+    # AJOUT DE SYMBOLES SUR LES CASES : avec couleur et bordure
+    # hex_grid.add_symbol(X, Y, FORME)
+    #    hex_grid.add_symbol(10, 8, Circle("red"))
+    #    hex_grid.add_symbol(9, 8, Rect("green"))
+    #    hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
+
+    # AJOUT DE LIENS ENTRE LES CASES : avec couleur
+    #hex_grid.add_link((5, 5), (6, 6), "red")
+    #hex_grid.add_link((8, 8), (7, 8), "purple", thick=4)
+
+
 
     # AFFICHAGE DE LA GRILLE
-    alias = {
-        "blue": "Mer",
-        "yellow": "Sable",
-        "yellowgreen": "Prairie",
-        "darkgreen": "Forêt",
-        "gray": "Montagne",
-        "red": "Départ",
-        #"purple": f"Distance {distance_target}",
-        "orange": "Plus haut sommet"
-    }
-    hex_grid.show(alias=alias, debug_coords=False)
+    # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
+    # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
+    hex_grid.show(alias={"dodgerblue": "water", "lightgreen": "grass light", "darkgreen": "forest", "lightgray": "mountain", "white": "mountain high"}, debug_coords=True)
 
 
+
+
+
+#Eviter d'éxécuter tout le code de la page si le fichier est importer
 if __name__ == "__main__":
     main()
+
+#Question 1 :
+#Déjà faites avec le code qui est donné
+
+#Question 2 :
+#Labeliser un sommet par un type de terrain : (herbe,montagne,route,eau)
+#Labeliser par une altitude : donc pour chaque coordonnée elle a une altitude prédéfinie pour laquel on associe un terrain
+#On update la couleur en fonction du terrain
+
+#Question 3 :
+#Test des implémentations qu'on a pu faire
+
+#Question 4 :
+#Algorithme BFS avec les distances 
+
+#Question 5 :
+#a) On crée une fonction dans la classe HexGridViewer
+
+#b) On implémente l'algorithme DFS pour obtenir le chemin le plus long d'altitude descendante
+
