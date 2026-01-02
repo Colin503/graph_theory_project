@@ -1,12 +1,5 @@
 """
-Programme basique en python3.8 permettant via matplolib de visualiser une grille hexagonale.
-
-Elle propose simplement:
- - l'affichage des hexagones, avec des couleurs et une opacité
- - l'ajout de formes colorées sur les hexagones
- - l'ajout de liens colorés entre les hexagones
-
-Contact: sebastien.gamblin@isen-ouest.yncrea.fr
+    Programme python qui permet la création
 """
 
 
@@ -239,7 +232,6 @@ class HexGridViewer:
             terrain, color = "montagne", "white"
     
         self.add_color(x, y, color)
-        # Mettre à jour l'alpha en fonction de l'altitude
         alpha = alt / self.__MAX_alt
         self.add_alpha(x, y, alpha)
 
@@ -266,159 +258,6 @@ class HexGridViewer:
         #print(case_per_distance)
         return case_per_distance
     
-    def generate_river(self, start_x: int, start_y: int) -> List[Coords]:
-        """
-        Génère une rivière à partir d'un point donné en utilisant une stack (DFS)
-        avec contrainte d'altitude descendante (chemin le plus long possible)
-        Choisit toujours le voisin avec l'altitude la plus basse
-        """
-        start = (start_x, start_y)
-        visited = {start}
-        stack = [start]
-        river_path = []
-        
-        while stack:
-            current = stack.pop()
-            river_path.append(current)
-            x, y = current
-            current_alt = self.get_altitude(x, y)
-            neighbors = self.get_neighbours(x, y)
-            
-            valid_neighbors = [
-                neighbor for neighbor in neighbors 
-                if neighbor not in visited and self.get_altitude(neighbor[0], neighbor[1]) < current_alt
-            ]
-            
-            if valid_neighbors:
-                next_node = min(valid_neighbors, key=lambda n: self.get_altitude(n[0], n[1]))
-                visited.add(next_node)
-                stack.append(next_node)
-        
-        return river_path
-
-    def generate_rivers_network(self, start_x: int, start_y: int) -> Dict[Coords, List[Coords]]:
-        """
-        Génère un réseau de rivières avec embranchements (structure en arbre)
-        """
-        start = (start_x, start_y)
-        rivers_network = {start: []}
-        stack = [start]
-        visited = {start}
-        
-        while stack:
-            current = stack.pop()
-            x, y = current
-            current_alt = self.get_altitude(x, y)
-            neighbors = self.get_neighbours(x, y)
-            
-            # Tous les voisins avec altitude descendante
-            valid_neighbors = [
-                neighbor for neighbor in neighbors 
-                if neighbor not in visited and self.get_altitude(neighbor[0], neighbor[1]) < current_alt
-            ]
-            
-            # Ajouter tous les voisins valides (crée les embranchements)
-            for neighbor in valid_neighbors:
-                visited.add(neighbor)
-                stack.append(neighbor)
-                rivers_network[current].append(neighbor)
-                rivers_network[neighbor] = []
-    
-        return rivers_network
-
-    def generate_procedural_map(self, seed: int = None):
-        """
-        Génère une carte procédurale avec l'algorithme Diamond-Square
-        et rivières cohérentes
-        """
-        if seed:
-            random.seed(seed)
-        
-        self._diamond_square()
-
-        # Mélanges pour casser la régularité et créer variations locales
-        self._mix_terrain(iterations=3, blend=0.55, noise=4)
-        self._pepper_local(fraction=0.03, amp=6)
-        self._mix_terrain(iterations=1, blend=0.35, noise=2)
-
-        # Générer des lacs : régions basses continues
-        self._generate_lakes(lake_threshold=30, min_size=3, lake_alt=10)
-
-        # Générer les rivières uniquement depuis le sommet le plus haut
-        highest_coord, highest_alt = self.highest_altitude()
-        if highest_alt > 70:
-            river = self.generate_rivers_network(highest_coord[0], highest_coord[1])
-            for parent, children in river.items():
-                for child in children:
-                    x, y = child
-                    # Ne pas annuler un lac déjà créé (altitude <= lake_alt)
-                    if self.get_altitude(x, y) > 15:
-                        self.add_altitude(x, y, 15)
-
-        # Mettre à jour les alphas et couleurs finales
-        self.update_all_alpha_from_altitude()
-
-    def _diamond_square(self):
-        """
-        Algorithme Diamond-Square pour générer des altitudes réalistes avec variation
-        """
-        # Initialiser les 4 coins avec altitudes plus hautes et variées
-        self.add_altitude(0, 0, random.randint(50, 85))
-        self.add_altitude(self.__width - 1, 0, random.randint(50, 85))
-        self.add_altitude(0, self.__height - 1, random.randint(50, 85))
-        self.add_altitude(self.__width - 1, self.__height - 1, random.randint(50, 85))
-        
-        step_size = self.__width - 1
-        scale = 25  
-        
-        while step_size > 1:
-            half_step = step_size // 2
-            
-            # Étape Diamond
-            for y in range(0, self.__height - 1, step_size):
-                for x in range(0, self.__width - 1, step_size):
-                    avg = (self.get_altitude(x, y) + 
-                           self.get_altitude(x + step_size, y) +
-                           self.get_altitude(x, y + step_size) +
-                           self.get_altitude(x + step_size, y + step_size)) / 4
-                    
-                    rand = random.randint(-scale, scale)
-                    cx, cy = x + half_step, y + half_step
-                    alt = max(0, min(100, int(avg + rand)))
-                    self.add_altitude(cx, cy, alt)
-            
-            # Étape Square
-            for y in range(0, self.__height, half_step):
-                for x in range((y + half_step) % step_size, self.__width, step_size):
-                    count = 0
-                    total = 0
-                    
-                    # Haut
-                    if y - half_step >= 0:
-                        total += self.get_altitude(x, y - half_step)
-                        count += 1
-                    # Bas
-                    if y + half_step < self.__height:
-                        total += self.get_altitude(x, y + half_step)
-                        count += 1
-                    # Gauche
-                    if x - half_step >= 0:
-                        total += self.get_altitude(x - half_step, y)
-                        count += 1
-                    # Droite
-                    if x + half_step < self.__width:
-                        total += self.get_altitude(x + half_step, y)
-                        count += 1
-                    
-                    if count > 0:
-                        avg = total / count
-                        rand = random.randint(-scale, scale)
-                        alt = max(0, min(100, int(avg + rand)))
-                        if self.get_altitude(x, y) == 0:
-                            self.add_altitude(x, y, alt)
-            
-            step_size = half_step
-            scale = max(5, int(scale * 0.65))  # Réduit pour plus de détails mélangés
 
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
@@ -534,13 +373,15 @@ def main():
     hex_grid = HexGridViewer(size, size)
     
     # QUESTION 6 : Génération procédurale avec Diamond-Square
-    hex_grid.generate_procedural_map(seed=42)
+    for i in range(size):
+        for j in range(size):
+            hex_grid.add_altitude(i,j,random.randint(0,100))
     
     # QUESTION 5a : Trouver le sommet le plus haut
     highest_coord, highest_alt = hex_grid.highest_altitude()
 
     # QUESTION 5c : Générer un réseau de rivières avec embranchements
-    rivers_network = hex_grid.generate_rivers_network(highest_coord[0], highest_coord[1])
+    #rivers_network = hex_grid.generate_rivers_network(highest_coord[0], highest_coord[1])
     
 
     # MODIFICATION DE LA COULEUR D'UNE CASE
@@ -580,7 +421,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"dodgerblue": "water", "lightgreen": "grass light", "darkgreen": "forest", "lightgray": "mountain", "white": "mountain high"}, debug_coords=True)
+    hex_grid.show(alias={"dodgerblue": "water", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "mountain", "white": "high moutain"}, debug_coords=True)
 
 
 
@@ -590,22 +431,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-#Question 1 :
-#Déjà faites avec le code qui est donné
-
-#Question 2 :
-#Labeliser un sommet par un type de terrain : (herbe,montagne,route,eau)
-#Labeliser par une altitude : donc pour chaque coordonnée elle a une altitude prédéfinie pour laquel on associe un terrain
-#On update la couleur en fonction du terrain
-
-#Question 3 :
-#Test des implémentations qu'on a pu faire
-
-#Question 4 :
-#Algorithme BFS avec les distances 
-
-#Question 5 :
-#a) On crée une fonction dans la classe HexGridViewer
-
-#b) On implémente l'algorithme DFS pour obtenir le chemin le plus long d'altitude descendante
 
