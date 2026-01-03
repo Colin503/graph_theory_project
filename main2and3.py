@@ -201,21 +201,6 @@ class HexGridViewer:
     def get_altitude(self, x:int, y:int) -> int:
         return self.__altitude[(x,y)]
 
-    #Return the node with the highest altitude
-    def highest_altitude(self) -> Coords:
-        altitudes = self.__altitude
-        if not altitudes:
-            return ((0.0),0)
-        
-        highest_coord = None
-        highest_alt = -1
-
-        for coord, alt in altitudes.items():
-            if alt > highest_alt:
-                highest_alt = alt
-                highest_coord = coord
-        return (highest_coord,highest_alt)
-
     #Update the terrain from the altitude
     def update_terrain_from_altitude(self, x: int, y: int) -> None:
         alt = self.__altitude[(x,y)]
@@ -232,6 +217,7 @@ class HexGridViewer:
             terrain, color = "montagne", "white"
     
         self.add_color(x, y, color)
+        # Mettre à jour l'alpha en fonction de l'altitude
         alpha = alt / self.__MAX_alt
         self.add_alpha(x, y, alpha)
 
@@ -255,7 +241,6 @@ class HexGridViewer:
                     if neighbor not in visited:
                         visited[neighbor] = distance+1
                         queue.append((neighbor,distance+1))
-        #print(case_per_distance)
         return case_per_distance
     
 
@@ -367,54 +352,20 @@ def main():
     Fonction exemple pour présenter le programme ci-dessus.
     """
     size = 17
-    center = (size-1)/2
+    center = (size - 1) // 2
+    distance = 3
 
     # CREATION D'UNE GRILLE TAILLE SIZE
     hex_grid = HexGridViewer(size, size)
     
-    # QUESTION 6 : Génération procédurale avec Diamond-Square
+    #Génération du terrain aléatoire
     for i in range(size):
         for j in range(size):
             hex_grid.add_altitude(i,j,random.randint(0,100))
-    
-    # QUESTION 5a : Trouver le sommet le plus haut
-    highest_coord, highest_alt = hex_grid.highest_altitude()
 
-    # QUESTION 5c : Générer un réseau de rivières avec embranchements
-    #rivers_network = hex_grid.generate_rivers_network(highest_coord[0], highest_coord[1])
-    
 
-    # MODIFICATION DE LA COULEUR D'UNE CASE
-    # hex_grid.add_color(X, Y, color) où :
-    # - X et Y sont les coordonnées de l'hexagone et color la couleur associée à cet hexagone.
-    #hex_grid.add_color(5, 5, "purple")
-    #hex_grid.add_color(1, 0, "red")
 
-    # MODIFICATION DE LA TRANSPARENCE D'UNE CASE
-    # hex_grid.add_alpha(X, Y, alpha) où :
-    # - X et Y sont les coordonnées de l'hexagone et alpha la transparence associée à cet hexagone.
-    #hex_grid.add_alpha(5, 5, 0.7)
 
-    # RECUPERATION DES VOISINS D'UNE CASE : ils sont entre 2 et 6.
-    # hex_grid.get_neighbours(X, Y)
-
-    #for _x, _y in hex_grid.get_neighbours(5, 5):
-    #    hex_grid.add_color(_x, _y, "blue")
-    #    hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
-
-    #for _x, _y in hex_grid.get_neighbours(1, 0):
-    #    hex_grid.add_color(_x, _y, "pink")
-    #    hex_grid.add_alpha(_x, _y, random.uniform(0.2, 1))
-
-    # AJOUT DE SYMBOLES SUR LES CASES : avec couleur et bordure
-    # hex_grid.add_symbol(X, Y, FORME)
-    #    hex_grid.add_symbol(10, 8, Circle("red"))
-    #    hex_grid.add_symbol(9, 8, Rect("green"))
-    #    hex_grid.add_symbol(3, 4, Rect("pink", edgecolor="black"))
-
-    # AJOUT DE LIENS ENTRE LES CASES : avec couleur
-    #hex_grid.add_link((5, 5), (6, 6), "red")
-    #hex_grid.add_link((8, 8), (7, 8), "purple", thick=4)
 
 
 
@@ -430,5 +381,6 @@ def main():
 #Eviter d'éxécuter tout le code de la page si le fichier est importer
 if __name__ == "__main__":
     main()
+
 
 
