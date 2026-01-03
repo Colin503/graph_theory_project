@@ -6,13 +6,13 @@ def generate_coherent_map(self) -> None:
         # Initialisation : tout à 0
         for x in range(self.width):
             for y in range(self.height):
-                self.set_altitude(x, y, 0)
+                self.add_altitude(x, y, 0)
    
         # Initialiser les 4 coins avec des valeurs aléatoires
-        self.set_altitude(0, 0, random.randint(50, 150))
-        self.set_altitude(self.width - 1, 0, random.randint(50, 150))
-        self.set_altitude(0, self.height - 1, random.randint(50, 150))
-        self.set_altitude(self.width - 1, self.height - 1, random.randint(50, 150))
+        self.add_altitude(0, 0, random.randint(50, 150))
+        self.add_altitude(self.width - 1, 0, random.randint(50, 150))
+        self.add_altitude(0, self.height - 1, random.randint(50, 150))
+        self.add_altitude(self.width - 1, self.height - 1, random.randint(50, 150))
    
         randomness = 120  # Magnitude du bruit
         tileWidth = min(self.width, self.height) - 1
@@ -49,7 +49,7 @@ def generate_coherent_map(self) -> None:
                     # Placer au centre
                     xm = (x + halfStep) % self.width
                     ym = (y + halfStep) % self.height
-                    self.set_altitude(xm, ym, avg)
+                    self.add_altitude(xm, ym, avg)
        
             # ===== SQUARE STEP =====
             # Calculer les milieux des arêtes
@@ -71,7 +71,7 @@ def generate_coherent_map(self) -> None:
                     if neighbors:
                         avg = sum(neighbors) / len(neighbors)
                         avg += random.uniform(-randomness, randomness)
-                        self.set_altitude(x, y, avg)
+                        self.add_altitude(x, y, avg)
        
             # Réduire le bruit progressivement
             randomness *= 0.6
@@ -127,7 +127,7 @@ def fixHeightAlonePoints(self) -> None:
    
         # Appliquer les nouvelles altitudes
         for vertex, altitude in new_altitudes.items():
-            self.set_altitude(*vertex, altitude)
+            self.add_altitude(*vertex, altitude)
 
 
 def generate_terrain(self, allaltitudes) -> None:
@@ -150,20 +150,20 @@ def generate_terrain(self, allaltitudes) -> None:
        
             # Assigner le terrain selon l'altitude
             if altitude < allquantiles[0]:  # 15% le plus bas
-                self.set_terrain(x, y, "eau")
+                self.add_terrain(x, y, "eau")
                 altitude_eau[(x, y)] = altitude
                 water_cells.append(vertex)
             elif altitude < allquantiles[1]:  # 15-35%
-                self.set_terrain(x, y, "desert")
+                self.add_terrain(x, y, "desert")
                 altitude_desert[(x, y)] = altitude
             elif altitude < allquantiles[2]:  # 35-65%
-                self.set_terrain(x, y, "herbe")
+                self.add_terrain(x, y, "herbe")
                 altitude_herbe[(x, y)] = altitude
             elif altitude < allquantiles[3]:  # 65-85%
-                self.set_terrain(x, y, "foret")
+                self.add_terrain(x, y, "foret")
                 altitude_foret[(x, y)] = altitude
             else:  # 15% le plus haut
-                self.set_terrain(x, y, "montagne")
+                self.add_terrain(x, y, "montagne")
                 altitude_montagne[(x, y)] = altitude
         
         # Calculer la transparence pour chaque type de terrain
@@ -181,7 +181,7 @@ def attribute_alpha(self, altitude_terrain) -> None:
         min_alt = min(altitude_terrain.values())
         max_alt = max(altitude_terrain.values())
         altitude_range = max_alt - min_alt if max_alt != min_alt else 1
-        
+         
         for coord, altitude in altitude_terrain.items():
             # Normaliser entre 0 et 1
             normalized = (altitude - min_alt) / altitude_range
