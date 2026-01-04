@@ -1,5 +1,6 @@
 """
-    Programme python qui permet la création
+    Programme python qui permet la création d'une grille hexagonale avec comme représentation un terrain
+    Auteur : Gaspard Vieujean & Colin Rousseau
 """
 
 #Enlève les "" des objet qu'on peut avoir
@@ -201,7 +202,7 @@ class HexGridViewer:
         # Attribuer la couleur selon le terrain
         terrain_colors = {
             "eau": "dodgerblue",
-            "desert": "gold",
+            "sable": "sandybrown",
             "herbe": "lightgreen",
             "foret": "darkgreen",
             "montagne": "lightgray"
@@ -253,7 +254,7 @@ class HexGridViewer:
             if altitude < allquantiles[0]:  # 15% le plus bas
                 self.add_terrain(x, y, "eau")
             elif altitude < allquantiles[1]:  # 15-35%
-                self.add_terrain(x, y, "desert")
+                self.add_terrain(x, y, "sable")
             elif altitude < allquantiles[2]:  # 35-65%
                 self.add_terrain(x, y, "herbe")
             elif altitude < allquantiles[3]:  # 65-85%
@@ -610,7 +611,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"dodgerblue": "water", "gold": "desert", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "mountain", "cyan": "river"}, debug_coords=False)
+    hex_grid.show(alias={"dodgerblue": "eau", "sandybrown": "sable", "lightgreen": "herbe", "darkgreen": "foret", "lightgray": "montagne", "cyan": "riviere"}, debug_coords=False)
 
 
 #Eviter d'éxécuter tout le code de la page si le fichier est importer
