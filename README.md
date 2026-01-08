@@ -1,172 +1,36 @@
-# Projet de Théorie des Graphes — Semestre 5
+# graph_theory_project
+Projet de théorie des Graphes : Semestre 5
 
-> **Sujet :** Modélisation et génération procédurale d’une carte sur **grille hexagonale**, avec terrains, altitudes et rivières.
+## Réponses aux questions :
 
----
+### 1 -  Proposez une implémentation d’un graphe, qui représente une grille hexagonale et qui possède toutes les propriétés d’un graphe. 
 
-## 📌 Objectifs du projet
+Nous utilisons une grille hexagonale pour la représentation du graphe.
 
-* Implémenter un **graphe** représentant une **grille hexagonale**
-* Étendre le modèle avec des **altitudes** et des **types de terrains**
-* Tester la génération **aléatoire**
-* Utiliser des **algorithmes de parcours de graphe** (BFS, DFS)
-* Générer une carte **cohérente** avec rivières (et lacs en extension)
+### 2 -  Proposez une extension de cette implémentation, permettant :  de labeliser les sommets par un type de terrain de votre choix (herbe, montagne, route, eau,etc...)
 
----
+    On ajoute un attribut altitude dans la classe HexGridViewer, avec une variable d'altitude maximale et minimale.
+    Depuis ces altitudes chaque case est déterminé avec un terrain spécifique en fonction de l'altitude qu'elle a reçu
 
-## 🧱 1. Implémentation d’un graphe hexagonal
+### 3 - Tester ce programme en ajoutant des types de terrain aléatoire et des altitudes aléatoires. 
 
-Nous utilisons une **grille hexagonale** pour représenter le graphe.
+        On teste notre programme main.py, on le compile et on observe, avec une génération aléatoire du terrain.
+    
 
-### Propriétés respectées
 
-* Chaque **case** est un **sommet**
-* Les **arêtes** relient les cases voisines (6 voisins possibles)
-* Le graphe est :
+### 4 - Quel algorithme utiliser pour générer une zone régulière qui s’étend sur la carte (i.e. toutes les cases à distance i d’une case) et comment l’adapter ? Implémentez-le 
+        
+        On va utiliser l'algorithm BFS (Breath First Search qui cherche toute les zones autour), avec une distance mise au préhalable. Avec des couleurs définies pour chaque distance
 
-  * non orienté
-  * connexe
-  * parcourable
+### 5 a - créer une méthode permettant de trouver le sommet le plus haut de votre carte. **
+On parcoure l'attribut altitude et exécute une boucle dessus pour trouver le plus grand
 
-Cette structure respecte toutes les propriétés fondamentales d’un graphe.
+### b - Quel algorithme permettrait de tracer des rivières à partir d’un point donné sur la carte, en ajoutant une contrainte d’altitude descendante en prenant le chemin le plus long possible ?
 
----
+        On utilise l'algorithme DFS (Depth first Search, qui va suivre un chemin qu'on lui propose)
 
-## 🏔️ 2. Extension : Altitudes et types de terrains
+### c - Que pouvez-vous ajoutez pour créer des embranchements de rivières ? Quelle est cette structure obtenue ?
 
-Nous avons étendu l’implémentation en ajoutant :
+    TOUS les voisins valides au lieu de prendre seulement le chemin le plus bas. Soit la structure obtenue est un arbre, ou un graphe acyclique orienté
 
-* Un attribut `altitude` pour chaque sommet
-* Une altitude **minimale** et **maximale** dans la classe `HexGridViewer`
-
-### Détermination du terrain
-
-Le type de terrain d’une case est déduit de son altitude, par exemple :
-
-| Altitude | Terrain  |
-| -------- | -------- |
-| Basse    | Eau      |
-| Moyenne  | Herbe    |
-| Élevée   | Montagne |
-
----
-
-## 🎲 3. Tests avec génération aléatoire
-
-* Les **altitudes** sont générées aléatoirement
-* Les **terrains** sont automatiquement assignés
-* Le programme est testé via le fichier `main.py`
-
-La visualisation permet de vérifier la cohérence du terrain généré.
-
----
-
-## 🟦 4. Génération de zones régulières
-
-### Algorithme utilisé
-
-👉 **BFS (Breadth-First Search)**
-
-### Principe
-
-* À partir d’une case source
-* On explore toutes les cases à distance `i`
-* Chaque distance peut être associée à une **couleur différente**
-
-### Adaptation
-
-* Ajout d’un compteur de distance
-* Arrêt du parcours à la distance maximale souhaitée
-
----
-
-## 🏔️ 5. Analyse de la carte
-
-### a) Trouver le sommet le plus haut
-
-* Parcours de toutes les cases
-* Comparaison des valeurs d’altitude
-* Conservation de l’altitude maximale rencontrée
-
-⏱️ Complexité : **O(n)**
-
----
-
-### b) Génération de rivières
-
-#### Algorithme utilisé
-
-👉 **DFS (Depth-First Search)**
-
-#### Contraintes
-
-* L’altitude doit être **strictement descendante**
-* Le chemin doit être **le plus long possible**
-
-DFS est adapté car il explore un chemin en profondeur avant de revenir en arrière.
-
----
-
-### c) Embranchements de rivières
-
-Pour créer des embranchements :
-
-* On explore **tous les voisins valides** (et pas uniquement le plus bas)
-
-### Structure obtenue
-
-* 🌳 **Arbre**
-* ou
-* 🔀 **Graphe orienté acyclique (DAG)**
-
----
-
-## 🗺️ 6. Génération complète d’une carte cohérente
-
-### Algorithme proposé
-
-👉 **Diamond-Square Algorithm**
-
-Cet algorithme permet :
-
-* Une génération procédurale réaliste des altitudes
-* Des transitions naturelles entre terrains
-
-### Étapes générales
-
-1. Génération des altitudes (Diamond-Square)
-2. Attribution des terrains selon l’altitude
-3. Détection des sommets élevés (sources)
-4. Génération des rivières par DFS
-
----
-
-### 🌊 Extension bonus : Lacs
-
-#### Contrainte ajoutée
-
-* L’eau n’est plus uniquement **linéaire** (rivière)
-* Elle peut former des **zones fermées**
-
-#### Solution possible
-
-* Détection de **minima locaux**
-* Remplissage des bassins
-* Vérification de l’écoulement ou stagnation
-
----
-
-## ✅ Conclusion
-
-Ce projet combine :
-
-* Structures de graphes
-* Algorithmes classiques (BFS, DFS)
-* Génération procédurale
-* Modélisation réaliste de terrains
-
-Il permet d’obtenir une carte cohérente et extensible, proche des systèmes utilisés dans les jeux vidéo ou la simulation.
-
----
-
-📚 **Mots-clés :** Graphe, Grille hexagonale, BFS, DFS, Diamond-Square, Génération procédurale
+### 6 Proposez maintenant un algorithme, qui, s’inspirant des deux prédécedents, génère une carte aléatoirement, de sorte à ce que les altitudes soient "logiques" et que les types de terrains aient une cohérence, avec des rivières. Extension bonus : l’eau peut ne pas être une rivière, par exemple, avec les lacs Quelle contrainte cela ajoute au programme ? Comment faire ?
