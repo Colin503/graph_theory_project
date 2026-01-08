@@ -213,7 +213,7 @@ class HexGridViewer:
                     Coordinates = (x, y)
         return high_alt, Coordinates
 
-    def set_terrain(self, x: int, y: int, terrain: str) -> None:
+    def add_terrain(self, x: int, y: int, terrain: str) -> None:
         """Définit le type de terrain d'une case."""
         self.__terrain[(x, y)] = terrain
         
@@ -225,6 +225,7 @@ class HexGridViewer:
             "foret": "darkgreen",
             "montagne": "lightgray"
         }
+
         if terrain in terrain_colors:
             self.add_color(x, y, terrain_colors[terrain])
 
@@ -232,15 +233,74 @@ class HexGridViewer:
         """Obtient le type de terrain d'une case."""
         return self.__terrain[(x, y)]
 
-    def get_all_vertices(self) -> List[Coords]:
+    def get_all_coords(self) -> List[Coords]:
         """Retourne toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
+
+    def generate_terrain(self, allaltitudes) -> None:
+        """Assigne les terrains selon l'altitude (par quantiles)."""
+        
+        # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
+        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+
+        #Pour assigner terrain et alpha :
+        terrain_groups = defaultdict(list)
+
+        for vertex in self.get_all_coords():
+            x, y = vertex
+            altitude = self.get_altitude(x, y)
+            if altitude < allquantiles[0]:  
+                terrain = "eau"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[1]: 
+                terrain = "sable"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[2]:  
+                terrain = "herbe"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[3]:  
+                terrain = "foret"
+                self.add_terrain(x, y, terrain)
+            else:  
+                terrain = "montagne"
+                self.add_terrain(x, y, terrain)
+            
+            terrain_groups[terrain].append((x,y, altitude)) # {"montagne" : [(1,3,23)]}
+        
+        for terrain_type, cells in terrain_groups.items():
+            if not cells:
+                continue
+            
+            altitudes = [cell[2] for cell in cells]
+            min_alt = min(altitudes)
+            max_alt = max(altitudes)
+
+            if max_alt != min_alt:
+                altitude_range = max_alt - min_alt 
+            else: #cas ou les altitudes max et min sont les mêmes
+                altitude_range = 1
+
+            is_water = (terrain_type == "eau") #Vrai ou Faux
+
+            for x, y, altitude in cells:
+
+                #calcul et assignation de la normalisation, plus une altitude est grande plus sa normalisationest grande
+                normal = (altitude - min_alt) / altitude_range
+
+                #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
+                if is_water:
+                    alpha = (1.0 - normal * 0.6)
+                else:
+                    alpha = (0.4 + normal * 0.6)
+                    self.add_alpha(x,y,alpha)
+                
+
 
     def fixHeightAlonePoints(self) -> None:
         """Lisse les points isolés en moyennant avec leurs voisins."""
         new_altitudes = {}
         
-        for vertex in self.get_all_vertices():
+        for vertex in self.get_all_coords():
             neighbours = self.get_neighbours(*vertex)
             if neighbours:
 
@@ -253,72 +313,9 @@ class HexGridViewer:
         
         # Appliquer les nouvelles altitudes
         for vertex, altitude in new_altitudes.items():
-            self.add_altitude(*vertex, altitude)
+            self.add_altitude(*vertex, altitude)        
 
-    def generate_terrain(self, allaltitudes) -> None:
-        """Assigne les terrains selon l'altitude (par quantiles)."""
-        
-        # Calculer les seuils
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
 
-        for vertex in self.get_all_vertices():
-            x, y = vertex
-            altitude = self.get_altitude(x, y)
-        
-            # Assigner le terrain selon l'altitude
-            if altitude < allquantiles[0]:  # 15% le plus bas
-                self.set_terrain(x, y, "eau")
-            elif altitude < allquantiles[1]:  # 15-35%
-                self.set_terrain(x, y, "sable")
-            elif altitude < allquantiles[2]:  # 35-65%
-                self.set_terrain(x, y, "herbe")
-            elif altitude < allquantiles[3]:  # 65-85%
-                self.set_terrain(x, y, "foret")
-            else:  # 15% le plus haut
-                self.set_terrain(x, y, "montagne")
-
-    def attribute_alpha_by_terrain(self) -> None:
-        """
-        Calcule et attribue la transparence (alpha) pour chaque type de terrain
-        en fonction de l'altitude au sein de ce terrain.
-        Alpha varie de 0.4 (altitude la plus basse du terrain) à 1.0 (altitude la plus haute).
-        """
-        # Dictionnaire pour regrouper les cases par terrain
-        terrain_groups = defaultdict(list)
-        
-        # Parcourir toutes les cases et les regrouper par terrain
-        for vertex in self.get_all_vertices():
-            x, y = vertex
-            terrain = self.get_terrain(x, y)
-            altitude = self.get_altitude(x, y)
-            terrain_groups[terrain].append((x, y, altitude))
-        
-        # Pour chaque type de terrain, calculer et appliquer l'alpha
-        for terrain_type, cells in terrain_groups.items():
-            if not cells:
-                continue
-            
-            # Extraire les altitudes
-            altitudes = [cell[2] for cell in cells]
-            min_alt = min(altitudes)
-            max_alt = max(altitudes)
-            
-            # Éviter la division par zéro si toutes les altitudes sont identiques
-            altitude_range = max_alt - min_alt if max_alt != min_alt else 1
-            
-            # Appliquer l'alpha normalisé pour chaque case de ce terrain
-            for x, y, altitude in cells:
-                # Normaliser entre 0 et 1
-                normalized = (altitude - min_alt) / altitude_range
-                # Mapper sur [0.4, 1.0]
-                alpha = 0.4 + (normalized * 0.6)
-                self.add_alpha(x, y, alpha)
-
-    def display_rivers(self, rivers: List[Tuple[Coords, Coords]]) -> None:
-        """Affiche les rivières sur la carte."""
-        for start, end in rivers:
-            # Colorer les cases de rivière en bleu
-            self.add_color(start[0], start[1], "dodgerblue")
 
     def generate_river_with_branches(self, current_coord: Coords, branch_probability=0.2, visited=None) -> List[Tuple[Coords, Coords]]:
         """
@@ -359,12 +356,17 @@ class HexGridViewer:
                 
         return links
 
+    
+    def display_rivers(self, rivers: List[Tuple[Coords, Coords]]) -> None:
+        """Affiche les rivières sur la carte."""
+        for start, end in rivers:
+            self.add_color(start[0], start[1], "dodgerblue")
+
     def generate_coherent_map(self) -> None:
         """
         Génère une carte avec altitudes et terrains cohérents
         via l'algorithme Diamond-Square.
         """
-        # [... garder tout le code existant jusqu'à la génération des terrains ...]
         
         # Initialisation : tout à 0
         for x in range(self.get_width()):
@@ -429,14 +431,14 @@ class HexGridViewer:
             self.fixHeightAlonePoints()
 
         # Génération des terrains
-        allaltitudes = [self.get_altitude(*v) for v in self.get_all_vertices()]
+        allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
         allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
         self.generate_terrain(allaltitudes)
-        self.attribute_alpha_by_terrain()
+
 
         # ===== GÉNÉRATION AMÉLIORÉE DES RIVIÈRES =====
         # Identifier les points hauts (foret et montagne)
-        high_points = [v for v in self.get_all_vertices()
+        high_points = [v for v in self.get_all_coords()
                     if self.get_terrain(*v) in ["foret", "montagne"]]
         
         # Filtrer pour ne garder que les points vraiment hauts

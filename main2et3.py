@@ -216,54 +216,63 @@ class HexGridViewer:
     def get_all_coords(self) -> List[Coords]:
         """Retourne la liste de toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
-    
-    def attribute_alpha_by_terrain(self) -> None:
-        """
-        Calcule et attribue la transparence (alpha) pour chaque type de terrain
-        en fonction de l'altitude au sein de ce terrain.
-        Alpha varie de 0.4 (altitude la plus basse du terrain) à 1.0 (altitude la plus haute). Sauf pour l'eau
-        """
 
-        # Dictionnaire pour regrouper les cases par terrain
-        terrain_cases = defaultdict(list)
+    def generate_terrain(self, allaltitudes) -> None:
+        """Assigne les terrains selon l'altitude (par quantiles)."""
+        
+        # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
+        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
 
-        # Regrouper les cases par type de terrain avec leurs altitudes
-        for (x, y), terrain in self.__terrain.items():
-            altitude = self.__altitude[(x, y)]
-            terrain_cases[terrain].append(((x, y), altitude))
+        #Pour assigner terrain et alpha :
+        terrain_groups = defaultdict(list)
 
-        # Calculer et attribuer l'alpha pour chaque terrain
-        for terrain, cases in terrain_cases.items():
-            altitudes = [alt for (_, alt) in cases]
+        for vertex in self.get_all_coords():
+            x, y = vertex
+            altitude = self.get_altitude(x, y)
+            if altitude < allquantiles[0]:  
+                terrain = "eau"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[1]: 
+                terrain = "sable"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[2]:  
+                terrain = "herbe"
+                self.add_terrain(x, y, terrain)
+            elif altitude < allquantiles[3]:  
+                terrain = "foret"
+                self.add_terrain(x, y, terrain)
+            else:  
+                terrain = "montagne"
+                self.add_terrain(x, y, terrain)
+            
+            terrain_groups[terrain].append((x,y, altitude)) # {"montagne" : [(1,3,23)]}
+        
+        for terrain_type, cells in terrain_groups.items():
+            if not cells:
+                continue
+            
+            altitudes = [cell[2] for cell in cells]
             min_alt = min(altitudes)
             max_alt = max(altitudes)
 
-            for (x, y), altitude in cases:
-                if max_alt == min_alt:
-                    alpha = 1.0  
+            if max_alt != min_alt:
+                altitude_range = max_alt - min_alt 
+            else: #cas ou les altitudes max et min sont les mêmes
+                altitude_range = 1
+
+            is_water = (terrain_type == "eau") #Vrai ou Faux
+
+            for x, y, altitude in cells:
+
+                #calcul et assignation de la normalisation, plus une altitude est grande plus sa normalisationest grande
+                normal = (altitude - min_alt) / altitude_range
+
+                #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
+                if is_water:
+                    alpha = (1.0 - normal * 0.6)
                 else:
-                    alpha = 0.4 + 0.6 * (altitude - min_alt) / (max_alt - min_alt)
-                self.add_alpha(x, y, alpha)
-
-    def generate_terrain(self, altitudes) -> None:
-        """Assigne les terrains selon l'altitude (par quantiles)."""
-
-        quantiles = np.quantile(altitudes, [0.15, 0.35, 0.65, 0.85])
-
-        for x in range(self.__width):
-            for y in range(self.__height):
-                altitude = self.get_altitude(x, y)
-
-                if altitude < quantiles[0]:
-                    self.add_terrain(x, y, "eau") 
-                elif altitude < quantiles[1]:
-                    self.add_terrain(x, y, "sable")
-                elif altitude < quantiles[2]:
-                    self.add_terrain(x, y, "herbe")
-                elif altitude < quantiles[3]:
-                    self.add_terrain(x, y, "foret")
-                else:
-                    self.add_terrain(x, y, "montagne")
+                    alpha = (0.4 + normal * 0.6)
+                    self.add_alpha(x,y,alpha)
 
     def generate_random_map(self) -> None:
         """Génère une carte aléatoire pour avoir une visualisation des altitudes et terraines"""
@@ -272,7 +281,7 @@ class HexGridViewer:
                 alt = random.uniform(0, 100)
                 self.add_altitude(x, y, alt)
         self.generate_terrain([self.get_altitude(x, y) for x in range(self.__width) for y in range(self.__height)])
-        self.attribute_alpha_by_terrain()
+
 
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
