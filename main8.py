@@ -50,6 +50,9 @@ from collections import deque
 #Pour les mesures de performance
 import time
 
+#File a priorité
+import heapq
+
 # un simple alias de typage python : type (x,y)
 Coords = Tuple[int, int]  
 
@@ -500,7 +503,6 @@ class HexGridViewer:
                             queue.append((neighbor, distance + 1))
             return case_per_distance
 
-
     def find_path_dijkstra(self, start: Coords, goal: Coords) -> List[Coords]:
         """
         Trouve le chemin le plus court entre deux points.
@@ -534,29 +536,94 @@ class HexGridViewer:
             path.append(curr)
             curr = parent_map[curr]
         
-        return path[::-1] # Inverser pour aller du départ à l'arrivée
+        return path[::-1] # Inverser pour aller du départ à l'arrivé
 
-    def place_cities_and_roads(self, nb_cities: int):
-        """Pose des villes aléatoires et les relie."""
+    def get_movement_cost(self, current: Coords, neighbor: Coords) -> float:
+        """Calcule le coût basé sur le type de terrain et la pente."""
+        terrain = self.get_terrain(neighbor[0], neighbor[1])
+        
+        # Coûts de base par type de terrain terrestres
+        costs = {
+            "herbe": 1.0,
+            "sable": 2.0,
+            "foret": 5.0,
+            "montagne": 10.0
+        }
+        
+        base_cost = costs.get(terrain, 1.0)
+        
+        # Ajout du coût lié à l'altitude (pente entre deux cases)
+        pente = abs(self.get_altitude(*neighbor) - self.get_altitude(*current))
+        return base_cost + (pente * 0.5)
 
-        all_coords = self.get_all_coords()
-        # On choisit des villes uniquement sur terre pour plus de réalisme
-        land_coords = [c for c in all_coords if self.get_terrain(c[0], c[1]) != "eau"]
-        cities = random.sample(land_coords if land_coords else all_coords, nb_cities)
+    def find_path_smart(self, start: Coords, goal: Coords) -> List[Coords]:
+        """Dijkstra avec BLOCAGE STRICT de l'eau."""
+        import heapq
+        
+        frontier = []
+        heapq.heappush(frontier, (0, start))
+        came_from = {start: None}
+        cost_so_far = {start: 0}
 
-        # Placer les symboles des villes (Rouge)
-        for x, y in cities:
+        while frontier:
+            _, current = heapq.heappop(frontier)
+
+            if current == goal:
+                break
+
+            for neighbor in self.get_neighbours(current[0], current[1]):
+                # --- LA DOUBLE VÉRIFICATION DE SÉCURITÉ ---
+                terrain_direct = self.get_terrain(neighbor[0], neighbor[1])
+                couleur_directe = self.get_color(neighbor[0], neighbor[1])
+                
+                # Si l'une des deux vérifications indique de l'eau, on BLOQUE
+                if terrain_direct == "eau" or couleur_directe == "dodgerblue":
+                    continue
+
+
+                new_cost = cost_so_far[current] + self.get_movement_cost(current, neighbor)
+                
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    heapq.heappush(frontier, (new_cost, neighbor))
+                    came_from[neighbor] = current
+        
+        if goal not in came_from: return []
+        path, curr = [], goal
+        while curr is not None:
+            path.append(curr)
+            curr = came_from[curr]
+        return path[::-1]
+
+    def place_cities_and_compare_roads(self, nb_cities: int):
+        """Place des villes et trace les deux types de routes pour comparer."""
+
+        # Dans votre fonction de placement de villes ou dans le main :
+        toutes_les_coords = self.get_all_coords()
+        terres_fermes = []
+
+        for c in toutes_les_coords:
+            # On vérifie la cohérence : si la couleur est dodgerblue ou le terrain est eau, on ignore
+            if self.get_terrain(c[0], c[1]) != "eau" and self.get_color(c[0], c[1]) != "dodgerblue":
+                terres_fermes.append(c)
+
+        # On choisit les villes uniquement parmi la terre ferme
+        villes = random.sample(terres_fermes, 6)
+
+        for x, y in villes:
             self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
 
-        start_time = time.time()
-        # Relier les villes entre elles (ex: 0-1, 1-2, 2-3...)
-        for i in range(len(cities) - 1):
-            path = self.find_path_dijkstra(cities[i], cities[i+1])
-            # Tracer les segments de route
-            for j in range(len(path) - 1):
-                self.add_link(path[j], path[j+1], color="black", thick=2)
-        
-        return time.time() - start_time
+        for i in range(len(villes) - 1):
+            # 1. Route directe (Noire - traverse l'eau)
+            p_simple = self.find_path_dijkstra(villes[i], villes[i+1])
+            for j in range(len(p_simple)-1):
+                self.add_link(p_simple[j], p_simple[j+1], color="black", thick=2)
+
+            # 2. Route Intelligente (Rouge - contourne l'eau et le relief)
+            p_smart = self.find_path_smart(villes[i], villes[i+1])
+            if p_smart:
+                for j in range(len(p_smart)-1):
+                    self.add_link(p_smart[j], p_smart[j+1], color="red", thick=2)
 
 
 
@@ -671,8 +738,7 @@ def main():
     
     #Génération de la carte 
     hex_grid.generate_map()
-    duree = hex_grid.place_cities_and_roads(6)
-    print(f"Routes générées en {duree:.4f} secondes.")
+    hex_grid.place_cities_and_compare_roads(4)
 
     #BFS
     #colors = ["black", "red", "orange", "yellow"]

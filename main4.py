@@ -313,7 +313,7 @@ class HexGridViewer:
                 alt = random.uniform(0, 100)
                 self.add_altitude(x, y, alt)
         self.generate_terrain([self.get_altitude(x, y) for x in range(self.__width) for y in range(self.__height)])
-        self.attribute_alpha_by_terrain()
+
 
     def bfs(self, start_x: int, start_y: int, max_distance: int) -> Dict[int, List[Coords]]:
         """Implémentation du BFS sur le graphe."""

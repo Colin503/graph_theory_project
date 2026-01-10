@@ -358,11 +358,21 @@ class HexGridViewer:
 
     
     def display_rivers(self, rivers: List[Tuple[Coords, Coords]]) -> None:
-        """Affiche les rivières sur la carte."""
+        """Affiche les rivières en coloriant les cases ET en traçant les liens."""
         for start, end in rivers:
-            self.add_color(start[0], start[1], "dodgerblue")
+            #Coordonnées du début
+            col_s, row_s = start
 
-    def generate_coherent_map(self) -> None:
+            #Coordonnées de la fin
+            col_e, row_e = end
+
+            self.add_color(row_s, col_s, "dodgerblue")
+            self.add_color(row_e, col_e, "dodgerblue")
+
+            #Ajout du lien
+            self.add_link((row_s, col_s), (row_e, col_e), color="cyan", thick=5)
+
+    def generate_map(self) -> None:
         """
         Génère une carte avec altitudes et terrains cohérents
         via l'algorithme Diamond-Square.
@@ -438,8 +448,8 @@ class HexGridViewer:
 
         # ===== GÉNÉRATION AMÉLIORÉE DES RIVIÈRES =====
         # Identifier les points hauts (foret et montagne)
-        high_points = [v for v in self.get_all_coords()
-                    if self.get_terrain(*v) in ["foret", "montagne"]]
+        high_points = [n for n in self.get_all_coords()
+                    if self.get_terrain(*n) in ["foret", "montagne"]]
         
         # Filtrer pour ne garder que les points vraiment hauts
         altitude_threshold = np.percentile(allaltitudes, 70)
@@ -447,8 +457,6 @@ class HexGridViewer:
         
         # Augmenter le nombre de rivières : environ 1 pour 30-50 points hauts
         num_rivers = max(3, len(high_points) // 40)
-        
-        print(f"Génération de {num_rivers} rivières depuis {len(high_points)} points hauts")
         
         # Générer plusieurs rivières indépendantes
         used_starts = set()
@@ -599,13 +607,8 @@ def main():
     # CREATION D'UNE GRILLE TAILLE SIZE
     hex_grid = HexGridViewer(size, size)
     
-    #Génération du terrain aléatoire
-    #for i in range(size):
-    #    for j in range(size):
-    #        hex_grid.add_altitude(i, j, random.randint(0, 100))
-    
     #Génération de la carte cohérente
-    hex_grid.generate_coherent_map()
+    hex_grid.generate_map()
 
     #BFS
     #colors = ["black", "red", "orange", "yellow"]

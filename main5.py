@@ -47,9 +47,6 @@ import numpy as np
 #Importer la dequeue en python
 from collections import deque
 
-#Pour les mesures de performance
-import time
-
 # un simple alias de typage python : type (x,y)
 Coords = Tuple[int, int]  
 
@@ -295,28 +292,7 @@ class HexGridViewer:
                     alpha = (1.0 - normal * 0.6)
                 else:
                     alpha = (0.4 + normal * 0.6)
-                    self.add_alpha(x,y,alpha)
-                
-
-
-    def fixHeightAlonePoints(self) -> None:
-        """Lisse les points isolés en moyennant avec leurs voisins."""
-        new_altitudes = {}
-        
-        for vertex in self.get_all_coords():
-            neighbours = self.get_neighbours(*vertex)
-            if neighbours:
-
-                # Moyenne entre altitude actuelle et moyenne des voisins
-                avg_altitude = sum(self.get_altitude(*n) for n in neighbours) / len(neighbours)
-                current = self.get_altitude(*vertex)
-                new_altitudes[vertex] = (current + avg_altitude) / 2
-            else:
-                new_altitudes[vertex] = self.get_altitude(*vertex)
-        
-        # Appliquer les nouvelles altitudes
-        for vertex, altitude in new_altitudes.items():
-            self.add_altitude(*vertex, altitude)        
+                    self.add_alpha(x,y,alpha)   
 
 
 
@@ -359,7 +335,6 @@ class HexGridViewer:
                 
         return links
 
-    
     def display_rivers(self, rivers: List[Tuple[Coords, Coords]]) -> None:
         """Affiche les rivières en coloriant les cases ET en traçant les liens."""
         for start, end in rivers:
@@ -372,84 +347,22 @@ class HexGridViewer:
             self.add_color(row_s, col_s, "dodgerblue")
             self.add_color(row_e, col_e, "dodgerblue")
 
-    def generate_map(self) -> None:
-        """
-        Génère une carte avec altitudes et terrains cohérents
-        via l'algorithme Diamond-Square.
-        """
-        
-        # Initialisation : tout à 0
-        for x in range(self.get_width()):
-            for y in range(self.get_height()):
-                self.add_altitude(x, y, 0)
+            #Ajout du lien
+            self.add_link((row_s, col_s), (row_e, col_e), color="cyan", thick=5)
 
-        # Initialiser les 4 coins
-        self.add_altitude(0, 0, random.randint(50, 150))
-        self.add_altitude(self.get_width() - 1, 0, random.randint(50, 150))
-        self.add_altitude(0, self.get_height() - 1, random.randint(50, 150))
-        self.add_altitude(self.get_width() - 1, self.get_height() - 1, random.randint(50, 150))
+    def generate_random_map(self) -> None:
+        """Génère une carte aléatoire pour avoir une visualisation des altitudes et terraines"""
+        for x in range(self.__width):
+            for y in range(self.__height):
+                alt = random.uniform(0, 100)
+                self.add_altitude(x, y, alt)
+        self.generate_terrain([self.get_altitude(x, y) for x in range(self.__width) for y in range(self.__height)])
 
-        randomness = 120
-        tileWidth = min(self.get_width(), self.get_height()) - 1
-        step = 1
-        while step < tileWidth:
-            step *= 2
-        step //= 2
 
-        while step > 0:
-            halfStep = step // 2
-            if halfStep <= 0:
-                break
-            
-            # Diamond step
-            for x in range(0, self.get_width(), step):
-                for y in range(0, self.get_height(), step):
-                    x2 = (x + step) % self.get_width()
-                    y2 = (y + step) % self.get_height()
-                    c1 = self.get_altitude(x, y)
-                    c2 = self.get_altitude(x2, y)
-                    c3 = self.get_altitude(x, y2)
-                    c4 = self.get_altitude(x2, y2)
-                    avg = (c1 + c2 + c3 + c4) / 4.0
-                    avg += random.uniform(-randomness, randomness)
-                    xm = (x + halfStep) % self.get_width()
-                    ym = (y + halfStep) % self.get_height()
-                    self.add_altitude(xm, ym, avg)
-            
-            # Square step
-            for x in range(0, self.get_width(), halfStep):
-                for y in range((x + halfStep) % step, self.get_height(), step):
-                    neighbors = []
-                    if self.get_altitude(x, (y - halfStep) % self.get_height()) is not None:
-                        neighbors.append(self.get_altitude(x, (y - halfStep) % self.get_height()))
-                    if self.get_altitude(x, (y + halfStep) % self.get_height()) is not None:
-                        neighbors.append(self.get_altitude(x, (y + halfStep) % self.get_height()))
-                    if self.get_altitude((x - halfStep) % self.get_width(), y) is not None:
-                        neighbors.append(self.get_altitude((x - halfStep) % self.get_width(), y))
-                    if self.get_altitude((x + halfStep) % self.get_width(), y) is not None:
-                        neighbors.append(self.get_altitude((x + halfStep) % self.get_width(), y))
-                    if neighbors:
-                        avg = sum(neighbors) / len(neighbors)
-                        avg += random.uniform(-randomness, randomness)
-                        self.add_altitude(x, y, avg)
-            
-            randomness *= 0.6
-            step //= 2
-
-        # Lissage
-        for _ in range(3):
-            self.fixHeightAlonePoints()
-
-        # Génération des terrains
         allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
-        self.generate_terrain(allaltitudes)
 
-
-        # ===== GÉNÉRATION AMÉLIORÉE DES RIVIÈRES =====
-        # Identifier les points hauts (foret et montagne)
-        high_points = [n for n in self.get_all_coords()
-                    if self.get_terrain(*n) in ["foret", "montagne"]]
+        #Générations des rivières
+        high_points = [v for v in self.get_all_coords() if self.get_terrain(*v) in ["foret", "montagne"]]
         
         # Filtrer pour ne garder que les points vraiment hauts
         altitude_threshold = np.percentile(allaltitudes, 70)
@@ -457,6 +370,8 @@ class HexGridViewer:
         
         # Augmenter le nombre de rivières : environ 1 pour 30-50 points hauts
         num_rivers = max(3, len(high_points) // 40)
+        
+        print(f"Génération de {num_rivers} rivières depuis {len(high_points)} points hauts")
         
         # Générer plusieurs rivières indépendantes
         used_starts = set()
@@ -477,6 +392,7 @@ class HexGridViewer:
                 # Marquer une zone autour du départ pour éviter des rivières trop proches
                 for neighbor in self.get_neighbours(*start):
                     used_starts.add(neighbor)
+
 
     def bfs(self, start_x: int, start_y: int, max_distance: int) -> Dict[int, List[Coords]]:
             """Implémentation du BFS sur le graphe."""
@@ -499,66 +415,6 @@ class HexGridViewer:
                             visited[neighbor] = distance + 1
                             queue.append((neighbor, distance + 1))
             return case_per_distance
-
-
-    def find_path_dijkstra(self, start: Coords, goal: Coords) -> List[Coords]:
-        """
-        Trouve le chemin le plus court entre deux points.
-        Complexité : O(V + E) sur une grille sans poids.
-        """
-        # File pour le parcours (BFS)
-        queue = deque([start])
-        # Dictionnaire pour reconstruire le chemin : {enfant: parent}
-        parent_map = {start: None}
-        
-        found = False
-        while queue:
-            current = queue.popleft()
-            
-            if current == goal:
-                found = True
-                break
-                
-            for neighbor in self.get_neighbours(current[0], current[1]):
-                if neighbor not in parent_map:
-                    parent_map[neighbor] = current
-                    queue.append(neighbor)
-        
-        if not found:
-            return []
-
-        # Reconstruction du chemin en remontant les parents
-        path = []
-        curr = goal
-        while curr is not None:
-            path.append(curr)
-            curr = parent_map[curr]
-        
-        return path[::-1] # Inverser pour aller du départ à l'arrivée
-
-    def place_cities_and_roads(self, nb_cities: int):
-        """Pose des villes aléatoires et les relie."""
-
-        all_coords = self.get_all_coords()
-        # On choisit des villes uniquement sur terre pour plus de réalisme
-        land_coords = [c for c in all_coords if self.get_terrain(c[0], c[1]) != "eau"]
-        cities = random.sample(land_coords if land_coords else all_coords, nb_cities)
-
-        # Placer les symboles des villes (Rouge)
-        for x, y in cities:
-            self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
-
-        start_time = time.time()
-        # Relier les villes entre elles (ex: 0-1, 1-2, 2-3...)
-        for i in range(len(cities) - 1):
-            path = self.find_path_dijkstra(cities[i], cities[i+1])
-            # Tracer les segments de route
-            for j in range(len(path) - 1):
-                self.add_link(path[j], path[j+1], color="black", thick=2)
-        
-        return time.time() - start_time
-
-
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
@@ -667,12 +523,8 @@ def main():
     # CREATION D'UNE GRILLE TAILLE SIZE
     hex_grid = HexGridViewer(size, size)
     
-
-    
-    #Génération de la carte 
-    hex_grid.generate_map()
-    duree = hex_grid.place_cities_and_roads(6)
-    print(f"Routes générées en {duree:.4f} secondes.")
+    #Génération de la carte cohérente
+    hex_grid.generate_random_map()
 
     #BFS
     #colors = ["black", "red", "orange", "yellow"]
@@ -692,7 +544,6 @@ def main():
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
     hex_grid.show(alias={"dodgerblue": "water", "sandybrown": "sable", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "montagne", "cyan": "river"}, debug_coords=False)
-
 
 
 #Eviter d'éxécuter tout le code de la page si le fichier est importer
