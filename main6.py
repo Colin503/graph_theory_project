@@ -237,11 +237,11 @@ class HexGridViewer:
         """Retourne toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
 
-    def generate_terrain(self, allaltitudes) -> None:
+    def generate_terrain(self, global_altitudes) -> None:
         """Assigne les terrains selon l'altitude (par quantiles)."""
         
         # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+        quantiles = np.quantile(global_altitudes, [0.15, 0.35, 0.65, 0.85])
 
         #Pour assigner terrain et alpha :
         terrain_groups = defaultdict(list)
@@ -249,16 +249,16 @@ class HexGridViewer:
         for vertex in self.get_all_coords():
             x, y = vertex
             altitude = self.get_altitude(x, y)
-            if altitude < allquantiles[0]:  
+            if altitude < quantiles[0]:  
                 terrain = "eau"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[1]: 
+            elif altitude < quantiles[1]: 
                 terrain = "sable"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[2]:  
+            elif altitude < quantiles[2]:  
                 terrain = "herbe"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[3]:  
+            elif altitude < quantiles[3]:  
                 terrain = "foret"
                 self.add_terrain(x, y, terrain)
             else:  
@@ -290,13 +290,14 @@ class HexGridViewer:
                 #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
                 if is_water:
                     alpha = (1.0 - normal * 0.6)
+                    self.add_alpha(x,y,alpha)
                 else:
                     alpha = (0.4 + normal * 0.6)
                     self.add_alpha(x,y,alpha)
                 
 
 
-    def fixHeightAlonePoints(self) -> None:
+    def high_points_fixation(self) -> None:
         """Lisse les points isolés en moyennant avec leurs voisins."""
         new_altitudes = {}
         
@@ -438,7 +439,7 @@ class HexGridViewer:
 
         # Lissage
         for _ in range(3):
-            self.fixHeightAlonePoints()
+            self.high_points_fixation()
 
         # Génération des terrains
         allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
@@ -627,7 +628,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"dodgerblue": "water", "sandybrown": "sable", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "montagne", "cyan": "river"}, debug_coords=False)
+    hex_grid.show(alias={"dodgerblue": "eau", "sandybrown": "sable", "lightgreen": "herbe", "darkgreen": "foret", "lightgray": "montagne"}, debug_coords=False)
 
 
 #Eviter d'éxécuter tout le code de la page si le fichier est importer

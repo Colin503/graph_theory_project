@@ -248,11 +248,11 @@ class HexGridViewer:
                     alpha = 0.4 + 0.6 * (altitude - min_alt) / (max_alt - min_alt)
                 self.add_alpha(x, y, alpha)
 
-    def generate_terrain(self, allaltitudes) -> None:
+    def generate_terrain(self, global_altitudes) -> None:
         """Assigne les terrains selon l'altitude (par quantiles)."""
         
         # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+        quantiles = np.quantile(global_altitudes, [0.15, 0.35, 0.65, 0.85])
 
         #Pour assigner terrain et alpha :
         terrain_groups = defaultdict(list)
@@ -260,16 +260,16 @@ class HexGridViewer:
         for vertex in self.get_all_coords():
             x, y = vertex
             altitude = self.get_altitude(x, y)
-            if altitude < allquantiles[0]:  
+            if altitude < quantiles[0]:  
                 terrain = "eau"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[1]: 
+            elif altitude < quantiles[1]: 
                 terrain = "sable"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[2]:  
+            elif altitude < quantiles[2]:  
                 terrain = "herbe"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[3]:  
+            elif altitude < quantiles[3]:  
                 terrain = "foret"
                 self.add_terrain(x, y, terrain)
             else:  
@@ -301,6 +301,7 @@ class HexGridViewer:
                 #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
                 if is_water:
                     alpha = (1.0 - normal * 0.6)
+                    self.add_alpha(x,y,alpha)
                 else:
                     alpha = (0.4 + normal * 0.6)
                     self.add_alpha(x,y,alpha)
@@ -440,12 +441,12 @@ def main():
     Fonction exemple pour présenter le programme ci-dessus.
     """
 
-    size = 33
+    size = 17
     center = (size-1)//2
     distance = 3
 
     # CREATION D'UNE GRILLE TAILLE SIZE
-    hex_grid = HexGridViewer(33, 33)
+    hex_grid = HexGridViewer(size, size)
 
     # GENERATION D'UNE CARTE ALEATOIRE (faire cela avant le BFS pour ne pas ecraser les couleurs du BFS)
     hex_grid.generate_random_map()
@@ -466,7 +467,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"dodgerblue": "water", "sandybrown": "sable", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "montagne", "cyan": "river", colors[1]: "distance : 1", colors[2]: "distance : 2", colors[3]: "distance : 3"   }, debug_coords=False)
+    hex_grid.show(alias={"dodgerblue": "eau", "sandybrown": "sable", "lightgreen": "herbe", "darkgreen": "foret", "lightgray": "montagne",colors[1]: "distance : 1", colors[2]: "distance : 2", colors[3]: "distance : 3", "black" : "centre"}, debug_coords=False)
 
 
 if __name__ == "__main__":

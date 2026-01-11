@@ -243,11 +243,11 @@ class HexGridViewer:
         """Retourne toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
 
-    def generate_terrain(self, allaltitudes) -> None:
+    def generate_terrain(self, global_altitudes) -> None:
         """Assigne les terrains selon l'altitude (par quantiles)."""
         
         # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+        quantiles = np.quantile(global_altitudes, [0.15, 0.35, 0.65, 0.85])
 
         #Pour assigner terrain et alpha :
         terrain_groups = defaultdict(list)
@@ -255,16 +255,16 @@ class HexGridViewer:
         for vertex in self.get_all_coords():
             x, y = vertex
             altitude = self.get_altitude(x, y)
-            if altitude < allquantiles[0]:  
+            if altitude < quantiles[0]:  
                 terrain = "eau"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[1]: 
+            elif altitude < quantiles[1]: 
                 terrain = "sable"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[2]:  
+            elif altitude < quantiles[2]:  
                 terrain = "herbe"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[3]:  
+            elif altitude < quantiles[3]:  
                 terrain = "foret"
                 self.add_terrain(x, y, terrain)
             else:  
@@ -296,13 +296,14 @@ class HexGridViewer:
                 #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
                 if is_water:
                     alpha = (1.0 - normal * 0.6)
+                    self.add_alpha(x,y,alpha)
                 else:
                     alpha = (0.4 + normal * 0.6)
                     self.add_alpha(x,y,alpha)
                 
 
 
-    def fixHeightAlonePoints(self) -> None:
+    def high_points_fixation(self) -> None:
         """Lisse les points isolés en moyennant avec leurs voisins."""
         new_altitudes = {}
         
@@ -441,7 +442,7 @@ class HexGridViewer:
 
         # Lissage
         for _ in range(3):
-            self.fixHeightAlonePoints()
+            self.high_points_fixation()
 
         # Génération des terrains
         allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
@@ -557,9 +558,8 @@ class HexGridViewer:
         return base_cost + (pente * 0.5)
 
     def find_path_smart(self, start: Coords, goal: Coords) -> List[Coords]:
-        """Dijkstra avec BLOCAGE STRICT de l'eau."""
-        import heapq
-        
+        """Dijkstra en tenant compte du terrain"""
+
         frontier = []
         heapq.heappush(frontier, (0, start))
         came_from = {start: None}
@@ -571,12 +571,12 @@ class HexGridViewer:
             if current == goal:
                 break
 
+
             for neighbor in self.get_neighbours(current[0], current[1]):
-                # --- LA DOUBLE VÉRIFICATION DE SÉCURITÉ ---
                 terrain_direct = self.get_terrain(neighbor[0], neighbor[1])
                 couleur_directe = self.get_color(neighbor[0], neighbor[1])
                 
-                # Si l'une des deux vérifications indique de l'eau, on BLOQUE
+                #Vérification que le terrain n'est pas de l'eau, et n'a pas la couleur bleu
                 if terrain_direct == "eau" or couleur_directe == "dodgerblue":
                     continue
 
@@ -588,6 +588,7 @@ class HexGridViewer:
                     heapq.heappush(frontier, (new_cost, neighbor))
                     came_from[neighbor] = current
         
+        # Reconstruction du chemin en remontant les parents
         if goal not in came_from: return []
         path, curr = [], goal
         while curr is not None:
@@ -598,12 +599,12 @@ class HexGridViewer:
     def place_cities_and_compare_roads(self, nb_cities: int):
         """Place des villes et trace les deux types de routes pour comparer."""
 
-        # Dans votre fonction de placement de villes ou dans le main :
         toutes_les_coords = self.get_all_coords()
         terres_fermes = []
 
         for c in toutes_les_coords:
-            # On vérifie la cohérence : si la couleur est dodgerblue ou le terrain est eau, on ignore
+            
+            #Empechement de mettre une ville si c'est de l'eau
             if self.get_terrain(c[0], c[1]) != "eau" and self.get_color(c[0], c[1]) != "dodgerblue":
                 terres_fermes.append(c)
 
@@ -614,6 +615,7 @@ class HexGridViewer:
             self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
 
         for i in range(len(villes) - 1):
+
             # 1. Route directe (Noire - traverse l'eau)
             p_simple = self.find_path_dijkstra(villes[i], villes[i+1])
             for j in range(len(p_simple)-1):
@@ -757,7 +759,7 @@ def main():
     # AFFICHAGE DE LA GRILLE
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
-    hex_grid.show(alias={"dodgerblue": "water", "sandybrown": "sable", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "montagne", "cyan": "river"}, debug_coords=False)
+    hex_grid.show(alias={"dodgerblue": "eau", "sandybrown": "sable", "lightgreen": "herbe", "darkgreen": "foret", "lightgray": "montagne"}, debug_coords=False)
 
 
 

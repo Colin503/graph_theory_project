@@ -243,11 +243,11 @@ class HexGridViewer:
         """Retourne toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
 
-    def generate_terrain(self, allaltitudes) -> None:
+    def generate_terrain(self, global_altitudes) -> None:
         """Assigne les terrains selon l'altitude (par quantiles)."""
         
         # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+        quantiles = np.quantile(global_altitudes, [0.15, 0.35, 0.65, 0.85])
 
         #Pour assigner terrain et alpha :
         terrain_groups = defaultdict(list)
@@ -255,16 +255,16 @@ class HexGridViewer:
         for vertex in self.get_all_coords():
             x, y = vertex
             altitude = self.get_altitude(x, y)
-            if altitude < allquantiles[0]:  
+            if altitude < quantiles[0]:  
                 terrain = "eau"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[1]: 
+            elif altitude < quantiles[1]: 
                 terrain = "sable"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[2]:  
+            elif altitude < quantiles[2]:  
                 terrain = "herbe"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[3]:  
+            elif altitude < quantiles[3]:  
                 terrain = "foret"
                 self.add_terrain(x, y, terrain)
             else:  
@@ -296,13 +296,14 @@ class HexGridViewer:
                 #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
                 if is_water:
                     alpha = (1.0 - normal * 0.6)
+                    self.add_alpha(x,y,alpha)
                 else:
                     alpha = (0.4 + normal * 0.6)
                     self.add_alpha(x,y,alpha)
                 
 
 
-    def fixHeightAlonePoints(self) -> None:
+    def high_points_fixation(self) -> None:
         """Lisse les points isolés en moyennant avec leurs voisins."""
         new_altitudes = {}
         
@@ -441,7 +442,7 @@ class HexGridViewer:
 
         # Lissage
         for _ in range(3):
-            self.fixHeightAlonePoints()
+            self.high_points_fixation()
 
         # Génération des terrains
         allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
@@ -557,8 +558,7 @@ class HexGridViewer:
         return base_cost + (pente * 0.5)
 
     def find_path_smart(self, start: Coords, goal: Coords) -> List[Coords]:
-        """Dijkstra avec BLOCAGE STRICT de l'eau."""
-        import heapq
+        """Dijkstra en tenant compte du terrain"""
         
         frontier = []
         heapq.heappush(frontier, (0, start))
@@ -572,11 +572,10 @@ class HexGridViewer:
                 break
 
             for neighbor in self.get_neighbours(current[0], current[1]):
-                # --- LA DOUBLE VÉRIFICATION DE SÉCURITÉ ---
                 terrain_direct = self.get_terrain(neighbor[0], neighbor[1])
                 couleur_directe = self.get_color(neighbor[0], neighbor[1])
                 
-                # Si l'une des deux vérifications indique de l'eau, on BLOQUE
+                #Vérification que le terrain n'est pas de l'eau, et n'a pas la couleur bleu
                 if terrain_direct == "eau" or couleur_directe == "dodgerblue":
                     continue
 
@@ -588,6 +587,7 @@ class HexGridViewer:
                     heapq.heappush(frontier, (new_cost, neighbor))
                     came_from[neighbor] = current
         
+        # Reconstruction du chemin en remontant les parents
         if goal not in came_from: return []
         path, curr = [], goal
         while curr is not None:
@@ -595,91 +595,74 @@ class HexGridViewer:
             curr = came_from[curr]
         return path[::-1]
 
-    def place_cities_and_compare_roads(self, nb_cities: int):
-        """Place des villes et trace les deux types de routes pour comparer."""
-
-        # Dans votre fonction de placement de villes ou dans le main :
-        toutes_les_coords = self.get_all_coords()
-        terres_fermes = []
-
-        for c in toutes_les_coords:
-            # On vérifie la cohérence : si la couleur est dodgerblue ou le terrain est eau, on ignore
-            if self.get_terrain(c[0], c[1]) != "eau" and self.get_color(c[0], c[1]) != "dodgerblue":
-                terres_fermes.append(c)
-
-        # On choisit les villes uniquement parmi la terre ferme
-        villes = random.sample(terres_fermes, 6)
-
-        for x, y in villes:
-            self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
-
-        for i in range(len(villes) - 1):
-            # 1. Route directe (Noire - traverse l'eau)
-            p_simple = self.find_path_dijkstra(villes[i], villes[i+1])
-            for j in range(len(p_simple)-1):
-                self.add_link(p_simple[j], p_simple[j+1], color="black", thick=2)
-
-            # 2. Route Intelligente (Rouge - contourne l'eau et le relief)
-            p_smart = self.find_path_smart(villes[i], villes[i+1])
-            if p_smart:
-                for j in range(len(p_smart)-1):
-                    self.add_link(p_smart[j], p_smart[j+1], color="red", thick=2)
-
     def find_set(self, parent: Dict[Coords, Coords], i: Coords) -> Coords:
-        """Trouve le représentant de l'ensemble de l'élément i."""
+        """Trouve le représentant (racine) de l'ensemble (Union-Find)."""
         if parent[i] == i:
             return i
         parent[i] = self.find_set(parent, parent[i]) # Compression de chemin
         return parent[i]
 
     def union_sets(self, parent: Dict[Coords, Coords], i: Coords, j: Coords):
-        """Réunit les ensembles de i et j."""
+        """Réunit deux ensembles (Union-Find)."""
         root_i = self.find_set(parent, i)
         root_j = self.find_set(parent, j)
         if root_i != root_j:
             parent[root_i] = root_j
-    
-    def generate_minimal_road_network(self, nb_cities: int):
-        """Répond à la Q.9 en créant un Arbre Couvrant Minimal (MST)."""
-        
-        # 1. Sélection des villes sur terre ferme
-        all_coords = self.get_all_coords()
-        terres_fermes = [c for c in all_coords if self.get_terrain(c[0], c[1]) != "eau" 
-                         and self.get_color(c[0], c[1]) != "dodgerblue"]
-        
+
+    def place_cities_and_compare_roads(self, nb_cities: int):
+        """
+        Noir : Chemins directs les plus rapides (Dijkstra) entre paires de villes.
+        Rouge : Réseau minimal global (Kruskal) pour connecter tout le monde.
+        """
+        toutes_les_coords = self.get_all_coords()
+         #Empechement de mettre une ville si c'est de l'eau
+        terres_fermes = [c for c in toutes_les_coords if self.get_terrain(c[0], c[1]) != "eau" and self.get_color(c[0], c[1]) != "dodgerblue"]
+
         if len(terres_fermes) < nb_cities:
             return
-            
-        cities = random.sample(terres_fermes, nb_cities)
-        for x, y in cities:
+
+        #Sélectionner et afficher les villes
+        villes = random.sample(terres_fermes, nb_cities)
+        for x, y in villes:
             self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
 
-        # 2. Calcul du graphe complet entre villes
-        edges = []
-        for i in range(len(cities)):
-            for j in range(i + 1, len(cities)):
-                path = self.find_path_smart(cities[i], cities[j])
-                if path:
-                    # Calcul du coût total cumulé du chemin
-                    cost = sum(self.get_movement_cost(path[k], path[k+1]) 
-                              for k in range(len(path)-1))
-                    edges.append((cost, cities[i], cities[j], path))
-                    
-                    # Tracer les routes noires (Toutes les connexions possibles)
-                    for k in range(len(path)-1):
-                        self.add_link(path[k], path[k+1], color="darkblue", thick=4)
+        #ROUTES NOIRES : Dijkstra "local" entre villes successives
+        #On relie la ville 0 à 1, 1 à 2, etc.
+        for i in range(len(villes) - 1):
+            path_dijkstra = self.find_path_smart(villes[i], villes[i+1])
+            if path_dijkstra:
+                for k in range(len(path_dijkstra)-1):
+                    self.add_link(path_dijkstra[k], path_dijkstra[k+1], color="black", thick=1)
 
-        # 3. Application de l'algorithme de Kruskal (Routes rouges)
-        edges.sort() # Trier par coût croissant
-        parent = {city: city for city in cities}
+        #ROUTES ROUGES : Kruskal pour le réseau minimal global
+        #On calcule d'abord tous les chemins possibles entre chaque ville
+        all_edges = []
+        for i in range(len(villes)):
+            for j in range(i + 1, len(villes)):
+                path = self.find_path_smart(villes[i], villes[j])
+                if path:
+                    # Calcul du coût total selon terrain + altitude
+                    cost = sum(self.get_movement_cost(path[k], path[k+1]) for k in range(len(path)-1))
+                    all_edges.append((cost, villes[i], villes[j], path))
+
+        #Tri par coût croissant (Glouton)
+        all_edges.sort()
+        parent = {v: v for v in villes}
+        routes = 0
         
-        print(f"Construction du réseau minimal pour {nb_cities} villes...")
-        for cost, u, v, path in edges:
+        for cost, u, v, path in all_edges:
+            #Si u et v ne sont pas encore connectés (Kruskal)
             if self.find_set(parent, u) != self.find_set(parent, v):
                 self.union_sets(parent, u, v)
-                # Tracer la route rouge (Le réseau le moins coûteux)
+                
+                #On trace l'arbre recouvrant de poids minimal
                 for k in range(len(path)-1):
-                    self.add_link(path[k], path[k+1], color="red", thick=4)
+                    self.add_link(path[k], path[k+1], color="red", thick=1)
+                routes += 1
+            
+            # Un arbre couvrant a exactement N-1 arêtes
+            if routes == nb_cities - 1:
+                break
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
@@ -781,7 +764,7 @@ def main():
     """
     Fonction exemple pour présenter le programme ci-dessus.
     """
-    size = 33
+    size = 17
     center = (size - 1) // 2
     distance = 3
 
@@ -792,7 +775,7 @@ def main():
     
     #Génération de la carte 
     hex_grid.generate_map()
-    hex_grid.place_cities_and_compare_roads(4)
+    hex_grid.place_cities_and_compare_roads(6)
 
     #BFS
     #colors = ["black", "red", "orange", "yellow"]

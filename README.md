@@ -12,7 +12,11 @@ Le but est de :
 
 ## 🗣️ - Auteur 
 
-- `Colin Rousseau
-- `Gaspard Vieujean
+- Colin Rousseau
+- Gaspard Vieujean
 
 ---
+
+## A savoir :
+
+- Chaque main avec son nombre représente la réponse a la question

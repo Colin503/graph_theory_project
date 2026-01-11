@@ -47,6 +47,12 @@ import numpy as np
 #Importer la dequeue en python
 from collections import deque
 
+#Pour les mesures de performance
+import time
+
+#File a priorité
+import heapq
+
 # un simple alias de typage python : type (x,y)
 Coords = Tuple[int, int]  
 
@@ -237,11 +243,11 @@ class HexGridViewer:
         """Retourne toutes les coordonnées de la grille."""
         return [(x, y) for x in range(self.__width) for y in range(self.__height)]
 
-    def generate_terrain(self, allaltitudes) -> None:
+    def generate_terrain(self, global_altitudes) -> None:
         """Assigne les terrains selon l'altitude (par quantiles)."""
         
         # Calculer les seuils, permet d'avoir des meilleurs seuil et donc une meilleure répartition des terrain
-        allquantiles = np.quantile(allaltitudes, [0.15, 0.35, 0.65, 0.85])
+        quantiles = np.quantile(global_altitudes, [0.15, 0.35, 0.65, 0.85])
 
         #Pour assigner terrain et alpha :
         terrain_groups = defaultdict(list)
@@ -249,16 +255,16 @@ class HexGridViewer:
         for vertex in self.get_all_coords():
             x, y = vertex
             altitude = self.get_altitude(x, y)
-            if altitude < allquantiles[0]:  
+            if altitude < quantiles[0]:  
                 terrain = "eau"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[1]: 
+            elif altitude < quantiles[1]: 
                 terrain = "sable"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[2]:  
+            elif altitude < quantiles[2]:  
                 terrain = "herbe"
                 self.add_terrain(x, y, terrain)
-            elif altitude < allquantiles[3]:  
+            elif altitude < quantiles[3]:  
                 terrain = "foret"
                 self.add_terrain(x, y, terrain)
             else:  
@@ -290,13 +296,14 @@ class HexGridViewer:
                 #Inversion de l'alpha en fonction de si c'est de l'eau, garde la plage de 0.4 à 1.0
                 if is_water:
                     alpha = (1.0 - normal * 0.6)
+                    self.add_alpha(x,y,alpha)
                 else:
                     alpha = (0.4 + normal * 0.6)
                     self.add_alpha(x,y,alpha)
                 
 
 
-    def fixHeightAlonePoints(self) -> None:
+    def high_points_fixation(self) -> None:
         """Lisse les points isolés en moyennant avec leurs voisins."""
         new_altitudes = {}
         
@@ -358,11 +365,18 @@ class HexGridViewer:
 
     
     def display_rivers(self, rivers: List[Tuple[Coords, Coords]]) -> None:
-        """Affiche les rivières sur la carte."""
+        """Affiche les rivières en coloriant les cases ET en traçant les liens."""
         for start, end in rivers:
-            self.add_color(start[0], start[1], "dodgerblue")
+            #Coordonnées du début
+            col_s, row_s = start
 
-    def generate_coherent_map(self) -> None:
+            #Coordonnées de la fin
+            col_e, row_e = end
+
+            self.add_color(row_s, col_s, "dodgerblue")
+            self.add_color(row_e, col_e, "dodgerblue")
+
+    def generate_map(self) -> None:
         """
         Génère une carte avec altitudes et terrains cohérents
         via l'algorithme Diamond-Square.
@@ -428,7 +442,7 @@ class HexGridViewer:
 
         # Lissage
         for _ in range(3):
-            self.fixHeightAlonePoints()
+            self.high_points_fixation()
 
         # Génération des terrains
         allaltitudes = [self.get_altitude(*v) for v in self.get_all_coords()]
@@ -438,8 +452,8 @@ class HexGridViewer:
 
         # ===== GÉNÉRATION AMÉLIORÉE DES RIVIÈRES =====
         # Identifier les points hauts (foret et montagne)
-        high_points = [v for v in self.get_all_coords()
-                    if self.get_terrain(*v) in ["foret", "montagne"]]
+        high_points = [n for n in self.get_all_coords()
+                    if self.get_terrain(*n) in ["foret", "montagne"]]
         
         # Filtrer pour ne garder que les points vraiment hauts
         altitude_threshold = np.percentile(allaltitudes, 70)
@@ -447,8 +461,6 @@ class HexGridViewer:
         
         # Augmenter le nombre de rivières : environ 1 pour 30-50 points hauts
         num_rivers = max(3, len(high_points) // 40)
-        
-        print(f"Génération de {num_rivers} rivières depuis {len(high_points)} points hauts")
         
         # Générer plusieurs rivières indépendantes
         used_starts = set()
@@ -491,6 +503,222 @@ class HexGridViewer:
                             visited[neighbor] = distance + 1
                             queue.append((neighbor, distance + 1))
             return case_per_distance
+
+    def find_path_dijkstra(self, start: Coords, goal: Coords) -> List[Coords]:
+        """
+        Trouve le chemin le plus court entre deux points.
+        Complexité : O(V + E) sur une grille sans poids.
+        """
+        # File pour le parcours (BFS)
+        queue = deque([start])
+        # Dictionnaire pour reconstruire le chemin : {enfant: parent}
+        parent_map = {start: None}
+        
+        found = False
+        while queue:
+            current = queue.popleft()
+            
+            if current == goal:
+                found = True
+                break
+                
+            for neighbor in self.get_neighbours(current[0], current[1]):
+                if neighbor not in parent_map:
+                    parent_map[neighbor] = current
+                    queue.append(neighbor)
+        
+        if not found:
+            return []
+
+        # Reconstruction du chemin en remontant les parents
+        path = []
+        curr = goal
+        while curr is not None:
+            path.append(curr)
+            curr = parent_map[curr]
+        
+        return path[::-1] # Inverser pour aller du départ à l'arrivé
+
+    def get_movement_cost(self, current: Coords, neighbor: Coords) -> float:
+        """Calcule le coût basé sur le type de terrain et la pente."""
+        terrain = self.get_terrain(neighbor[0], neighbor[1])
+        
+        # Coûts de base par type de terrain terrestres
+        costs = {
+            "herbe": 2.0,
+            "sable": 1.0,
+            "foret": 5.0,
+            "montagne": 10.0
+        }
+        
+        base_cost = costs.get(terrain, 1.0)
+        
+        # Ajout du coût lié à l'altitude (pente entre deux cases)
+        pente = abs(self.get_altitude(*neighbor) - self.get_altitude(*current))
+        return base_cost + (pente * 0.5)
+
+    def find_path_smart(self, start: Coords, goal: Coords) -> List[Coords]:
+        """Dijkstra en tenant compte du terrain"""
+
+        
+        frontier = []
+        heapq.heappush(frontier, (0, start))
+        came_from = {start: None}
+        cost_so_far = {start: 0}
+
+        while frontier:
+            _, current = heapq.heappop(frontier)
+
+            if current == goal:
+                break
+
+            for neighbor in self.get_neighbours(current[0], current[1]):
+                terrain_direct = self.get_terrain(neighbor[0], neighbor[1])
+                couleur_directe = self.get_color(neighbor[0], neighbor[1])
+                
+                #Vérification que le terrain n'est pas de l'eau, et n'a pas la couleur bleuE
+                if terrain_direct == "eau" or couleur_directe == "dodgerblue":
+                    continue
+
+
+                new_cost = cost_so_far[current] + self.get_movement_cost(current, neighbor)
+                
+                if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
+                    cost_so_far[neighbor] = new_cost
+                    heapq.heappush(frontier, (new_cost, neighbor))
+                    came_from[neighbor] = current
+
+        # Reconstruction du chemin en remontant les parents
+        if goal not in came_from: return []
+        path, curr = [], goal
+        while curr is not None:
+            path.append(curr)
+            curr = came_from[curr]
+        return path[::-1]
+
+    def find_set(self, parent: Dict[Coords, Coords], i: Coords) -> Coords:
+        """Trouve le représentant (racine) de l'ensemble (Union-Find)."""
+        if parent[i] == i:
+            return i
+        parent[i] = self.find_set(parent, parent[i]) # Compression de chemin
+        return parent[i]
+
+    def union_sets(self, parent: Dict[Coords, Coords], i: Coords, j: Coords):
+        """Réunit deux ensembles (Union-Find)."""
+        root_i = self.find_set(parent, i)
+        root_j = self.find_set(parent, j)
+        if root_i != root_j:
+            parent[root_i] = root_j
+
+    def place_cities_and_compare_roads(self, nb_cities: int):
+        """
+        Noir : Chemins directs les plus rapides (Dijkstra) entre paires de villes.
+        Rouge : Réseau minimal global (Kruskal) pour connecter tout le monde.
+        """
+        toutes_les_coords = self.get_all_coords()
+        terres_fermes = [c for c in toutes_les_coords if self.get_terrain(c[0], c[1]) != "eau" and self.get_color(c[0], c[1]) != "dodgerblue"]
+
+        if len(terres_fermes) < nb_cities:
+            return
+
+        #Sélectionner et afficher les villes
+        villes = random.sample(terres_fermes, nb_cities)
+        for x, y in villes:
+            self.add_symbol(x, y, Circle(color="darkred", edgecolor="white"))
+
+        #ROUTES NOIRES : Dijkstra "local" entre villes successives
+        #On relie la ville 0 à 1, 1 à 2, etc.
+        for i in range(len(villes) - 1):
+            path_dijkstra = self.find_path_smart(villes[i], villes[i+1])
+            if path_dijkstra:
+                for k in range(len(path_dijkstra)-1):
+                    self.add_link(path_dijkstra[k], path_dijkstra[k+1], color="black", thick=1)
+
+        #ROUTES ROUGES : Kruskal pour le réseau minimal global
+        #On calcule d'abord tous les chemins possibles entre chaque ville
+        all_edges = []
+        for i in range(len(villes)):
+            for j in range(i + 1, len(villes)):
+                path = self.find_path_smart(villes[i], villes[j])
+                if path:
+                    #Calcul du coût total selon terrain + altitude
+                    cost = sum(self.get_movement_cost(path[k], path[k+1]) for k in range(len(path)-1))
+                    all_edges.append((cost, villes[i], villes[j], path))
+
+        #Tri par coût croissant (Glouton)
+        all_edges.sort()
+        parent = {v: v for v in villes}
+        routes_mst = 0
+        
+        for cost, u, v, path in all_edges:
+            #Si u et v ne sont pas encore connectés (Kruskal)
+            if self.find_set(parent, u) != self.find_set(parent, v):
+                self.union_sets(parent, u, v)
+                #On trace l'abre recouvrant de poids minimal en rouge et plus épais
+                for k in range(len(path)-1):
+                    self.add_link(path[k], path[k+1], color="red", thick=1)
+                routes_mst += 1
+            
+            # Un arbre couvrant a exactement N-1 arêtes
+            if routes_mst == nb_cities - 1:
+                break
+
+    def generate_merchant_tour(self, nb_cities: int):
+        """Tour du marchant en se basant sur Dijsktra et un algorithme glouton"""
+        
+        #Sélection des villes (uniquement sur terre ferme)
+        all_coords = self.get_all_coords()
+        terres_fermes = [c for c in all_coords if self.get_terrain(c[0], c[1]) != "eau" 
+                         and self.get_color(c[0], c[1]) != "dodgerblue"]
+        
+        if len(terres_fermes) < nb_cities: return
+        
+        cities = random.sample(terres_fermes, nb_cities)
+        ville_depart = cities[0]
+        for ville in cities:
+            if ville == ville_depart:
+                # Couleur spécifique pour le départ (ex: rouge)
+                self.add_symbol(ville[0], ville[1], Circle(color="crimson", edgecolor="black"))
+            else:
+                # Autres villes en doré
+                self.add_symbol(ville[0], ville[1], Circle(color="gold", edgecolor="black"))
+
+        #Logique du parcours
+        villes_a_visiter = cities.copy()
+        ville_actuelle = villes_a_visiter.pop(0)
+
+        while villes_a_visiter:
+            # On cherche la ville la plus proche de notre position actuelle
+            prochaine_ville = None
+            meilleur_chemin = []
+            distance_min = float('inf')
+
+            for ville in villes_a_visiter:
+                chemin = self.find_path_smart(ville_actuelle, ville)
+                if chemin:
+                    # On calcule le "poids" du chemin via ta fonction de coût
+                    cout = sum(self.get_movement_cost(chemin[k], chemin[k+1]) for k in range(len(chemin)-1))
+                    if cout < distance_min:
+                        distance_min = cout
+                        prochaine_ville = ville
+                        meilleur_chemin = chemin
+
+            # Si on a trouvé une ville accessible, on trace le lien
+            if prochaine_ville:
+                for k in range(len(meilleur_chemin)-1):
+                    # On trace en vert pour bien distinguer le parcours du marchand
+                    self.add_link(meilleur_chemin[k], meilleur_chemin[k+1], color="gold", thick=2)
+                
+                # On se déplace vers cette ville
+                ville_actuelle = prochaine_ville
+                villes_a_visiter.remove(prochaine_ville)
+
+        #LE RETOUR : On boucle vers la ville de départ
+        chemin_retour = self.find_path_smart(ville_actuelle, ville_depart)
+        if chemin_retour:
+            for k in range(len(chemin_retour)-1):
+                self.add_link(chemin_retour[k], chemin_retour[k+1], color="gold", thick=2)
+
 
     def show(self, alias: Dict[str, str] = None, debug_coords: bool = False) -> None:
         """
@@ -599,13 +827,13 @@ def main():
     # CREATION D'UNE GRILLE TAILLE SIZE
     hex_grid = HexGridViewer(size, size)
     
-    #Génération du terrain aléatoire
-    #for i in range(size):
-    #    for j in range(size):
-    #        hex_grid.add_altitude(i, j, random.randint(0, 100))
+
     
-    #Génération de la carte cohérente
-    hex_grid.generate_coherent_map()
+    #Génération de la carte 
+    hex_grid.generate_map()
+    #hex_grid.place_cities_and_compare_roads(6)
+
+    hex_grid.generate_merchant_tour(6)
 
     #BFS
     #colors = ["black", "red", "orange", "yellow"]
@@ -625,6 +853,7 @@ def main():
     # alias permet de renommer les noms de la légende pour des couleurs spécifiques.
     # debug_coords permet de modifier l'affichage des coordonnées sur les cases.
     hex_grid.show(alias={"dodgerblue": "water", "sandybrown": "sable", "lightgreen": "grass", "darkgreen": "forest", "lightgray": "montagne", "cyan": "river"}, debug_coords=False)
+
 
 
 #Eviter d'éxécuter tout le code de la page si le fichier est importer
