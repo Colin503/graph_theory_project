@@ -20,3 +20,7 @@ Le but est de :
 ## A savoir :
 
 - Chaque main avec son nombre représente la réponse a la question
+
+## Exécution :
+
+- python "nomdufichier.py"

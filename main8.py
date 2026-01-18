@@ -504,7 +504,7 @@ class HexGridViewer:
                             queue.append((neighbor, distance + 1))
             return case_per_distance
 
-    def find_path_dijkstra(self, start: Coords, goal: Coords) -> List[Coords]:
+    def find_path_bfs(self, start: Coords, goal: Coords) -> List[Coords]:
         """
         Trouve le chemin le plus court entre deux points.
         Complexité : O(V + E) sur une grille sans poids.
@@ -617,7 +617,7 @@ class HexGridViewer:
         for i in range(len(villes) - 1):
 
             # 1. Route directe (Noire - traverse l'eau)
-            p_simple = self.find_path_dijkstra(villes[i], villes[i+1])
+            p_simple = self.find_path_bfs(villes[i], villes[i+1])
             for j in range(len(p_simple)-1):
                 self.add_link(p_simple[j], p_simple[j+1], color="black", thick=2)
 
